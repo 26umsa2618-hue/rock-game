@@ -113,6 +113,18 @@ function safeKey(name) {
   return name.trim().replace(/[.#$\[\]/]/g, "_").slice(0, 30) || "player";
 }
 
+function makeUniqueName(baseName, entries) {
+  const base = baseName.trim();
+  const names = new Set(entries.map((entry) => entry.name));
+  if (!names.has(base)) return base;
+
+  let serial = 2;
+  while (names.has(`${base}_${String(serial).padStart(3, "0")}`)) {
+    serial += 1;
+  }
+  return `${base}_${String(serial).padStart(3, "0")}`;
+}
+
 function randomSample() {
   return SAMPLES[Math.floor(Math.random() * SAMPLES.length)];
 }
@@ -246,8 +258,7 @@ export default function App() {
       const data = snapshot.val() || {};
       const entries = Object.values(data)
         .filter((entry) => entry && entry.name && typeof entry.score === "number")
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
+        .sort((a, b) => b.score - a.score);
       setSavedLeaderboard(entries);
     });
     return () => unsubscribe();
@@ -269,6 +280,7 @@ export default function App() {
     return savedLeaderboard
       .map((entry) => ({ ...entry, me: entry.name === playerName }))
       .sort((a, b) => b.score - a.score)
+      .slice(0, 10)
       .map((entry, index) => ({ ...entry, rank: index + 1 }));
   }, [savedLeaderboard, playerName]);
 
@@ -288,8 +300,13 @@ export default function App() {
   function startGame() {
     const clean = nameInput.trim();
     if (!clean) return;
-    setPlayerName(clean);
-    setMessage(`👋 ${clean}님, 채석장에 오신 것을 환영합니다.`);
+    const uniqueName = makeUniqueName(clean, savedLeaderboard);
+    setPlayerName(uniqueName);
+    if (uniqueName === clean) {
+      setMessage(`👋 ${uniqueName}님, 채석장에 오신 것을 환영합니다.`);
+    } else {
+      setMessage(`👋 ${clean} 닉네임이 이미 있어서 ${uniqueName}으로 등록했습니다.`);
+    }
   }
 
   function changeScore(delta) {
@@ -333,18 +350,46 @@ export default function App() {
       if (selectedGrain !== current.grain || selectedColor !== current.color || selectedFeature !== current.feature) return penalizeWrong("관찰 결과가 맞지 않습니다. 다시 확인하세요.");
     }
 
-    if (current.observeMode === "slectedFeature) return setMessage("퇴적암은 만들어진 흔적과 특징을 모두 선택하세요.");
-      if (selectedSedimentFeature !== curren    if (current.obif (selectedSedimentFeature !== current.sedimentFeature || selectedFeature !== current.feature) return penalizeWrong("관찰 결과가 맞지 않습니다. 다시 확인하세요.");    if (!selectedType) return setMessage("암석 종류를 선택하세요.");
-    if (selectedType !== current.type) return setMessage("암석 종류가 맞지 않습니다.");
+    if (current.observeMode === "sedimentary") {
+      if (!selectedSedimentFeature || !selectedFeature) return setMessage("퇴적암은 만들어진 흔적과 특징을 모두 선택하세요.");
+      if (selectedSedimentFeature !== current.sedimentFeature || selectedFeature !== current.feature) return penalizeWrong("관찰 결과가 맞지 않습니다. 다시 확인하세요.");
+    }
+
+    if (current.observeMode === "metamorphic") {
+      if (!selectedMetamorphicFeature || !selectedFeature) return setMessage("변성암은 변한 흔적과 특징을 모두 선택하세요.");
+      if (selectedMetamorphicFeature !== current.metamorphicFeature || selectedFeature !== current.feature) return penalizeWrong("관찰 결과가 맞지 않습니다. 다시 확인하세요.");
+    }
+
+    if (!selectedType) return setMessage("암석 종류를 선택하세요.");
+    if (selectedType !== current.type) return penalizeWrong("암석 종류가 맞지 않습니다.");
 
     const gain = 10 + level * 2;
-if (selectedMetamorphicFeature !== current.metamorphicFeature || selectedFeature !== current.feature) return penalizeWrong("관찰 결과가 맞지 않습니다. 다시 확인하세요.");ample(id) {
-    const sample = SAMPLES.find((s) => s.id === id);
-    ifif (selectedType !== current.type) return penalizeWrong("암석 종류가 맞지 않습니다.");ssage("아직 검증되지 않은 표본입니다.");
-    setItScchangeScore(gain);Message(`${sample.name} 검증 표본을 과학관에 판매했습니다. +${sample.value} 코인`);
+    changeScore(gain);
+    setCoins((c) => c + Math.floor(current.value / 2));
+    setBook((b) => ({ ...b, [current.id]: current }));
+    setVerified((v) => ({ ...v, [current.id]: true }));
+    setMessage(`정답! ${current.name} 표본이 검증되었습니다. 이제 판매할 수 있습니다.`);
+    if (score + gain >= level * 50) {
+      setLevel((l) => l + 1);
+      setEnergy((e) => e + 3);
+    }
   }
 
-  funcetMessage("에너지를 충전했습니다.");
+  function sellSample(id) {
+    const sample = SAMPLES.find((s) => s.id === id);
+    if (!sample || !inventory[id]) return;
+    if (!verified[id]) return setMessage("아직 검증되지 않은 표본입니다.");
+    setInventory((prev) => ({ ...prev, [id]: prev[id] - 1 }));
+    setCoins((c) => c + sample.value);
+    changeScore(5);
+    setMessage(`${sample.name} 검증 표본을 과학관에 판매했습니다. +${sample.value} 코인`);
+  }
+
+  function refillEnergy() {
+    if (coins < 20) return setMessage("에너지 충전에는 20코인이 필요합니다.");
+    setCoins((c) => c - 20);
+    setEnergy((e) => e + 6);
+    setMessage("에너지를 충전했습니다.");
   }
 
   
@@ -354,15 +399,17 @@ if (selectedMetamorphicFeature !== current.metamorphicFeature || selectedFeature
     if (current.observeMode === "igneous") {
       return (
         <>
-          <ChoiceGroup title="🔬 1단계: 알갱이 크기">
-          <ChoiceGroup title="🎨 2단계: 색깔" items={["밝은색 계열", "어두운색 계열"]} value={selectedColor} onSelect={setSelecoiceGroup title="✨ 3단계: 추가 특징" items={["알갱이가 눈에 잘 보임", "구멍이 보일 수 있음"]} value={selectedFeature} onSelect={setSelectedFeature} />
+          <ChoiceGroup title="🔬 1단계: 알갱이 크기" items={["큼", "작음"]} value={selectedGrain} onSelect={setSelectedGrain} />
+          <ChoiceGroup title="🎨 2단계: 색깔" items={["밝은색 계열", "어두운색 계열"]} value={selectedColor} onSelect={setSelectedColor} />
+          <ChoiceGroup title="✨ 3단계: 추가 특징" items={["알갱이가 눈에 잘 보임", "구멍이 보일 수 있음"]} value={selectedFeature} onSelect={setSelectedFeature} />
         </>
       );
     }
 
     if (current.observeMode === "sedimentary") {
       return (
-   changeScore(5);ceGroup title="🌊 1단계: 만들어진 흔적" items={["퇴적물이 쌓여 굳어진 모습", "화석이나 생물 흔적이 보일 수 있음"]} value={selectedSedimentFeature} onSelect={setSelectedSedimentFeature} />
+        <>
+          <ChoiceGroup title="🌊 1단계: 만들어진 흔적" items={["퇴적물이 쌓여 굳어진 모습", "화석이나 생물 흔적이 보일 수 있음"]} value={selectedSedimentFeature} onSelect={setSelectedSedimentFeature} />
           <ChoiceGroup title="🧩 2단계: 퇴적암 특징" items={["층리가 나타날 수 있음", "묽은 염산에 기포가 생김"]} value={selectedFeature} onSelect={setSelectedFeature} />
         </>
       );
@@ -370,7 +417,7 @@ if (selectedMetamorphicFeature !== current.metamorphicFeature || selectedFeature
 
     return (
       <>
-        <ChoiceGroup title="🔥 1단계: 변한 흔적" items={["줄무늬나 엽리가value={selectedMetamorphicFeature} onSelect={setSelectedMetamorphicFeature} />
+        <ChoiceGroup title="🔥 1단계: 변한 흔적" items={["줄무늬나 엽리가 보임", "기존 암석이 변한 모습"]} value={selectedMetamorphicFeature} onSelect={setSelectedMetamorphicFeature} />
         <ChoiceGroup title="🧩 2단계: 변성암 특징" items={["열과 압력을 받은 흔적이 있음", "석회암이 변성되어 만들어짐"]} value={selectedFeature} onSelect={setSelectedFeature} />
       </>
     );
@@ -428,6 +475,7 @@ if (selectedMetamorphicFeature !== current.metamorphicFeature || selectedFeature
               <AppButton onClick={mine}>⛏️ 채굴하기</AppButton>
               <AppButton onClick={classify} kind="secondary">🧪 검증하기</AppButton>
               <AppButton onClick={refillEnergy}>에너지 충전</AppButton>
+              <AppButton onClick={skipSample}>⏭️ 넘기기 -10점</AppButton>
             </div>
           </div>
         </Card>
@@ -460,7 +508,8 @@ if (selectedMetamorphicFeature !== current.metamorphicFeature || selectedFeature
             </div>
             <div style={{ display: "grid", gap: 10 }}>
               {leaderboard.length === 0 && (
-                <div style={style )}
+                <div style={styles.emptyRank}>🪨 아직 등록된 점수가 없습니다.</div>
+              )}
               {leaderboard.map((entry) => (
                 <div key={entry.name} style={{ ...styles.rankRow, background: entry.me ? "#fef3c7" : "#f5f5f4" }}>
                   <span>{rankEmoji(entry.rank)} {entry.rank}위 · {entry.name}{entry.me ? " 👤" : ""}</span>
