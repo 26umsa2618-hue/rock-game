@@ -1,26 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { initializeApp } from "firebase/app";
-import { getDatabase, onValue, ref, set } from "firebase/database";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBR_uqP_bJdTULAkcyQJF4p3ZIkLzY-30",
-  authDomain: "rock-game-a09c2.firebaseapp.com",
-  databaseURL: "https://rock-game-a09c2-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "rock-game-a09c2",
-  storageBucket: "rock-game-a09c2.firebasestorage.app",
-  messagingSenderId: "182019123095",
-  appId: "1:182019123095:web:cda88c83d5a8464a7acd2",
-  measurementId: "G-7NYV3ZLQT5",
-};
-
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getDatabase(firebaseApp);
 
 const SAMPLES = [
   {
     id: "granite",
     name: "화강암",
-    type: "화성암",
+    icon: "🧱",
+    type: "화성암",    type: "화성암",
     subtype: "심성암",
     clue: "흰색·검은색·분홍색 알갱이가 눈으로 보일 만큼 섞여 있다.",
     observeMode: "igneous",
@@ -31,8 +16,9 @@ const SAMPLES = [
     value: 16,
   },
   {
-    id: "basalt",
-    name: "현무암",
+    idname: "현무암",
+    icon: "🌋",
+    type: "화성암",    icon: "🌋",
     type: "화성암",
     subtype: "화산암",
     clue: "전체적으로 검고, 표면에 작은 구멍이 보이기도 한다.",
@@ -42,10 +28,10 @@ const SAMPLES = [
     feature: "구멍이 보일 수 있음",
     fact: "용암이 지표 부근에서 빠르게 식어 만들어진 화산암이다.",
     value: 14,
-  },
-  {
-    id: "sandstone",
-    name: "사암",
+  name: "사암",
+    icon: "🏜️",
+    type: "퇴적암",    name: "사암",
+    icon: "🏜️",
     type: "퇴적암",
     subtype: "쇄설성 퇴적암",
     clue: "작은 퇴적물이 쌓여 굳어진 것처럼 보이고, 층이 나타날 수 있다.",
@@ -53,35 +39,40 @@ const SAMPLES = [
     sedimentFeature: "퇴적물이 쌓여 굳어진 모습",
     feature: "층리가 나타날 수 있음",
     fact: "모래가 쌓이고 다져지고 굳어져 만들어진 퇴적암이다.",
-    value: 13,
-  },
-  {
-    id: "limestone",
+name: "석회암",
+    icon: "🐚",
+    type: "퇴적암",d: "limestone",
     name: "석회암",
+    icon: "🐚",
     type: "퇴적암",
     subtype: "생물·화학적 퇴적암",
     clue: "밝은색이며 조개껍데기 같은 흔적이 보일 수 있다. 묽은 염산을 떨어뜨리면 변화가 생긴다.",
     observeMode: "sedimentary",
     sedimentFeature: "화석이나 생물 흔적이 보일 수 있음",
     feature: "묽은 염산에 기포가 생김",
-    fact: "탄산 칼슘 성분이 많아 묽은 염산과 반응하여 이산화 탄소 기체가 발생한다.",
-    value: 18,
+    fact: "탄산 칼슘 성분이 많아 묽은 염산과 반응하여 name: "편마암",
+    icon: "〰️",
+    type: "변성암", 18,
   },
   {
     id: "gneiss",
     name: "편마암",
+    icon: "〰️",
     type: "변성암",
     subtype: "엽리 있는 변성암",
     clue: "색이 다른 부분이 길게 이어져 줄무늬처럼 보인다.",
     observeMode: "metamorphic",
     metamorphicFeature: "줄무늬나 엽리가 보임",
     feature: "열과 압력을 받은 흔적이 있음",
-    fact: "높은 열과 압력을 받아 광물이 줄무늬 모양으로 배열된 변성암이다.",
+    fact: "높은 열name: "대리암",
+    icon: "🏛️",
+    type: "변성암",이다.",
     value: 20,
   },
   {
     id: "marble",
     name: "대리암",
+    icon: "🏛️",
     type: "변성암",
     subtype: "석회암이 변성",
     clue: "석회암이 열과 압력을 받아 변한 암석이다. 밝고 단단하며 무늬가 부드럽게 이어져 보인다.",
@@ -102,26 +93,56 @@ const ROCK_IMAGES = {
   marble: "https://commons.wikimedia.org/wiki/Special:FilePath/Carrara%20marble.jpg",
 };
 
-const STARTING_LEADERBOARD = [
-  { name: "지질학자 민준", score: 180, preset: true },
-  { name: "암석왕 서연", score: 145, preset: true },
-  { name: "채석장 고수", score: 110, preset: true },
-];
+const STARTING_LEADERBOARD = [];
 
-function randomSample() {
-  return SAMPLES[Math.floor(Math.random() * SAMPLES.length)];
+const LEADERBOARD_KEY = "rock-game-leaderboard-v1";
+
+function loadLeaderboard() {
+  try {
+    const saved = window.localStorage.getItem(LEADERBOARD_KEY);
+    if (!saved) return STARTING_LEADERBOARD;
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : STARTING_LEADERBOARD;
+  } catch {
+    return STARTING_LEADERBOARD;
+  }
 }
 
-function makePlayerKey(name) {
-  return name
-    .trim()
-    .replaceAll(".", "_")
-    .replaceAll("#", "_")
-    .replaceAll("$", "_")
-    .replaceAll("[", "_")
-    .replaceAll("]", "_")
-    .replaceAll("/", "_")
-    .slice(0, 40);
+function saveLeaderboard(entries) {
+  try {
+    window.localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
+  } catch {
+    // localStorage may be unavailable in some browsers.
+function rankEmoji(rank) {
+  if (rank === 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
+  return "🪨";
+}
+
+function typeEmoji(type) {
+  if (type === "화성암") return "🌋";
+  if (type === "퇴적암") return "🌊";
+  if (type === "변성암") return "🔥";
+  return "🪨";
+}=== 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
+  return "🪨";
+}
+
+function typeEmoji(type) {
+  if (type === "화성암") return "🌋";
+  if (type === "퇴적암") return "🌊";
+  if (type === "변성암") return "🔥";
+  return "🪨";
+}
+
+function modeEmoji(mode) {
+  if (mode === "igneous") return "🌋";
+  if (mode === "sedimentary") return "🌊";
+  if (mode === "metamorphic") return "🔥";
+  return "🔍";
 }
 
 function AppButton({ children, onClick, disabled, selected, kind = "primary" }) {
@@ -204,9 +225,7 @@ function RockPhoto({ sample, small = false, hidden = false }) {
         style={{
           width: "100%",
           height: "100%",
-          objectFit: small ? "cover" : "contain",
-          display: "block",
-        }}
+          objectFit: small ? "cover" : "c"⛏️ 채석장에 오신 것을 환영합니다. 암석 표본을 모아 도감을 완성하세요!"     }}
       />
     </div>
   );
@@ -219,13 +238,12 @@ export default function App() {
   const [energy, setEnergy] = useState(8);
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
-  const [message, setMessage] = useState("채석장에 오신 것을 환영합니다. 암석 표본을 모아 도감을 완성하세요!");
+  const [message, setMessage] = useState("⛏️ 채석장에 오신 것을 환영합니다. 암석 표본을 모아 도감을 완성하세요!");
   const [current, setCurrent] = useState(null);
   const [inventory, setInventory] = useState({});
   const [book, setBook] = useState({});
   const [verified, setVerified] = useState({});
-  const [serverLeaderboard, setServerLeaderboard] = useState(STARTING_LEADERBOARD);
-  const [serverStatus, setServerStatus] = useState("리더보드 연결 중...");
+  const [savedLeaderboard, setSavedLeaderboard] = useState(loadLeaderboard);
   const [selectedType, setSelectedType] = useState("");
   const [selectedGrain, setSelectedGrain] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
@@ -234,67 +252,32 @@ export default function App() {
   const [selectedMetamorphicFeature, setSelectedMetamorphicFeature] = useState("");
 
   const collectedCount = useMemo(() => Object.keys(book).length, [book]);
-
   useEffect(() => {
-    const leaderboardRef = ref(db, "leaderboard");
-    const unsubscribe = onValue(
-      leaderboardRef,
-      (snapshot) => {
-        const data = snapshot.val() || {};
-        const firebaseEntries = Object.values(data)
-          .filter((entry) => entry && entry.name && typeof entry.score === "number")
-          .sort((a, b) => b.score - a.score);
-
-        const merged = [...firebaseEntries, ...STARTING_LEADERBOARD].reduce((acc, entry) => {
-          const old = acc.get(entry.name);
-          if (!old || entry.score > old.score) acc.set(entry.name, entry);
-          return acc;
-        }, new Map());
-
-        const top = Array.from(merged.values())
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 10);
-
-        setServerLeaderboard(top);
-        setServerStatus("Firebase 공유 리더보드 연결됨");
-      },
-      () => {
-        setServerLeaderboard(STARTING_LEADERBOARD);
-        setServerStatus("Firebase 연결 실패: 기본 리더보드로 표시 중");
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
+    if (!playerName) return;
+    setSavedLeaderboard((prev) => {
+      const withoutMe = prev.filter((entry) => entry.name !== playerName);
+      const oldScore = prev.find((entry) => entry.name === playerName)?.score || 0;
+      const updated = [
+        ...withoutMe,
+        { name: playerName, score: Math.max(oldScore, score), me: true },
+      ]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+      saveLeaderboard(updated);
+      return updated;
+    });
+  }, [playerName, score]);
 
   const leaderboard = useMemo(() => {
-    return serverLeaderboard
+    return savedLeaderboard
       .map((entry) => ({ ...entry, me: entry.name === playerName }))
       .sort((a, b) => b.score - a.score)
       .map((entry, index) => ({ ...entry, rank: index + 1 }));
-  }, [serverLeaderboard, playerName]);
+  }, [savedLeaderboard, playerName]);
 
   const myBestScore = useMemo(() => {
-    return leaderboard.find((entry) => entry.name === playerName)?.score || score;
-  }, [leaderboard, playerName, score]);
-
-  useEffect(() => {
-    if (!playerName) return;
-
-    const oldBest = leaderboard.find((entry) => entry.name === playerName)?.score || 0;
-    const bestScore = Math.max(oldBest, score);
-
-    if (bestScore <= 0) return;
-
-    const key = makePlayerKey(playerName);
-    set(ref(db, `leaderboard/${key}`), {
-      name: playerName,
-      score: bestScore,
-      updatedAt: Date.now(),
-    }).catch(() => {
-      setServerStatus("점수 저장 실패: Firebase 규칙 또는 연결을 확인하세요.");
-    });
-  }, [playerName, score]);
+    return savedLeaderboard.find((entry) setMessage(`👋 ${clean}님, 채석장에 오신 것을 환영합니다.`);re;
+  }, [savedLeaderboard, playerName, score]);
 
   function resetChoices() {
     setSelectedType("");
@@ -306,15 +289,13 @@ export default function App() {
   }
 
   function startGame() {
-    const clean = nameInput.trim();
-    if (!clean) return;
-    setPlayerName(clean);
-    setMessage(`${clean}님, 채석장에 오신 것을 환영합니다.`);
+    const clean = nameInpusetMessage(`🔎 새 표본 발견: ${sample.icon} ${sample.name}. 관찰 항목을 고르고 검증하세요.`););
+    setMessage(`👋 ${clean}님, 채석장에 오신 것을 환영합니다.`);
   }
 
   function mine() {
     if (energy <= 0) {
-      setMessage("에너지가 부족합니다. 에너지 충전을 눌러 주세요.");
+      setMessage("⚠️ 에너지가 부족합니다. 에너지 충전을 눌러 주세요.");
       return;
     }
     const sample = randomSample();
@@ -322,36 +303,36 @@ export default function App() {
     setEnergy((e) => e - 1);
     setInventory((prev) => ({ ...prev, [sample.id]: (prev[sample.id] || 0) + 1 }));
     resetChoices();
-    setMessage(`새 표본 발견: ${sample.name}. 관찰 항목을 고르고 검증하세요.`);
+    setMessage(`🔎 새 표본 발견: ${sample.icon} ${sample.name}. 관찰 항목을 고르고 검증하세요.`);
   }
 
   function classify() {
-    if (!current) return setMessage("먼저 채굴해서 표본을 찾아야 합니다.");
+    if (!current) return setMessage("⛏️ 먼저 채굴해서 표본을 찾아야 합니다.");
 
     if (current.observeMode === "igneous") {
-      if (!selectedGrain || !selectedColor || !selectedFeature) return setMessage("화성암은 알갱이 크기, 색깔, 추가 특징을 모두 선택하세요.");
-      if (selectedGrain !== current.grain || selectedColor !== current.color || selectedFeature !== current.feature) return setMessage("관찰 결과가 맞지 않습니다. 다시 확인하세요.");
+      if (!selectedGrain || !selectedColor || !selectedFeature) return setMessage("🌋 화성암은 알갱이 크기, 색깔, 추가 특징을 모두 선택하세요.");
+      if (selectedGrain !== current.grain || selectedColor !== current.color || selectedFeature !== current.feature) return setMessage("🔍 관찰 결과가 맞지 않습니다. 다시 확인하세요.");
     }
 
     if (current.observeMode === "sedimentary") {
-      if (!selectedSedimentFeature || !selectedFeature) return setMessage("퇴적암은 만들어진 흔적과 특징을 모두 선택하세요.");
-      if (selectedSedimentFeature !== current.sedimentFeature || selectedFeature !== current.feature) return setMessage("관찰 결과가 맞지 않습니다. 다시 확인하세요.");
+      if (!selectedSedimentFeature || !selectedFeature) return setMessage("🌊 퇴적암은 만들어진 흔적과 특징을 모두 선택하세요.");
+      if (selectedSedimentFeature !== current.sedimentFeature || selectedFeature !== current.feature) return setMessage("🔍 관찰 결과가 맞지 않습니다. 다시 확인하세요.");
     }
 
     if (current.observeMode === "metamorphic") {
-      if (!selectedMetamorphicFeature || !selectedFeature) return setMessage("변성암은 변한 흔적과 특징을 모두 선택하세요.");
-      if (selectedMetamorphicFeature !== current.metamorphicFeature || selectedFeature !== current.feature) return setMessage("관찰 결과가 맞지 않습니다. 다시 확인하세요.");
+      if (!selectedMetamorphicFeature || !selectedFeature) return setMessage("🔥 변성암은 변한 흔적과 특징을 모두 선택하세요.");
+      if (selectedMetamorphicFeature !== current.metamorphicFeature || selectedFeature !== current.feature) return setMessage("🔍 관찰 결과가 맞지 않습니다. 다시 확인하세요.");
     }
 
-    if (!selectedType) return setMessage("암석 종류를 선택하세요.");
-    if (selectedType !== current.type) return setMessage("암석 종류가 맞지 않습니다.");
+    if (!selectedType) return setMessage("🧭 암석 종류를 선택하세요.");
+    if (selectedType !== current.type) return setMessage("❌ 암석 종류가 맞지 않습니다.");
 
     const gain = 10 + level * 2;
     setScore((s) => s + gain);
     setCoins((c) => c + Math.floor(current.value / 2));
     setBook((b) => ({ ...b, [current.id]: current }));
     setVerified((v) => ({ ...v, [current.id]: true }));
-    setMessage(`정답! ${current.name} 표본이 검증되었습니다. 이제 판매할 수 있습니다.`);
+    setMessage(`✅ 정답! ${current.icon} ${current.name} 표본이 검증되었습니다. 이제 판매할 수 있습니다.`);
     if (score + gain >= level * 50) {
       setLevel((l) => l + 1);
       setEnergy((e) => e + 3);
@@ -361,29 +342,29 @@ export default function App() {
   function sellSample(id) {
     const sample = SAMPLES.find((s) => s.id === id);
     if (!sample || !inventory[id]) return;
-    if (!verified[id]) return setMessage("아직 검증되지 않은 표본입니다.");
+    if (!verified[id]) return setMessage("🔒 아직 검증되지 않은 표본입니다.");
     setInventory((prev) => ({ ...prev, [id]: prev[id] - 1 }));
     setCoins((c) => c + sample.value);
     setScore((s) => s + 5);
-    setMessage(`${sample.name} 검증 표본을 과학관에 판매했습니다. +${sample.value} 코인`);
+    setMessage(`💰 ${sample.icon} ${sample.name} 검증 표본을 과학관에 판매했습니다. +${sample.value} 코인`);
+  <ChoiceGroup title="🔬 1단계: 알갱이 크기"   if (coins < 20) return setMessage("🪙 에너지 충전에는 20코인이 필요합니다.");
+    setCoins((c) =<ChoiceGroup title="🎨 2단계: 색깔" => e + 6);
+    setMessage("⚡ 에너지를 충전했습니다.");
   }
 
-  function refillEnergy() {
-    if (coins < 20) return setMessage("에너지 충전에는 20코인이 필요합니다.");
-    setCoins((c) => c - 20);
-    setEnergy((e) => e + 6);
-    setMessage("에너지를 충전했습니다.");
+  function resetLeaderboard() {
+    setSave<ChoiceGroup title="✨ 3단계: 추가 특징"RD);
+    saveLeaderboard(STARTING_LEADERBOARD);
+    setMessage("🧹 리더보드를 초기화했습니다.");
   }
 
   function renderObservationChoices() {
     if (!current) return null;
 
     if (current.observeMode === "igneous") {
-      return (
-        <>
-          <ChoiceGroup title="1단계: 알갱이 크기" items={["큼", "작음"]} value={selectedGrain} onSelect={setSelectedGrain} />
-          <ChoiceGroup title="2단계: 색깔" items={["밝은색 계열", "어두운색 계열"]} value={selectedColor} onSelect={setSelectedColor} />
-          <ChoiceGroup title="3단계: 추가 특징" items={["알갱이가 눈에 잘 보임", "구멍이 보일 수 있음"]} value={selectedFeature} onSelect={setSelectedFeature} />
+    <ChoiceGroup title="🌊 1단계: 만들어진 흔적"ChoiceGroup title="🔬 1단계: 알갱이 크기" items={["큼", "작음"]} value={selectedGrain} onSelect={setSelectedGrain} />
+          <ChoiceGroup tit<ChoiceGroup title="🧩 2단계: 퇴적암 특징", "어두운색 계열"]} value={selectedColor} onSelect={setSelectedColor} />
+          <ChoiceGroup title="✨ 3단계: 추가 특징" items={["알갱이가 눈에 잘 보임", "구멍이 보일 수 있음"]} value={<ChoiceGroup title="🔥 1단계: 변한 흔적"electedFeature} />
         </>
       );
     }
@@ -391,16 +372,11 @@ export default function App() {
     if (current.observeMode === "sedimentary") {
       return (
         <>
-          <ChoiceGroup title="1단계: 만들어진 흔적" items={["퇴적물이 쌓여 굳어진 모습", "화석이나 생물 흔적이 보일 수 있음"]} value={selectedSedimentFeature} onSelect={setSelectedSedimentFeature} />
-          <ChoiceGroup title="2단계: 퇴적암 특징" items={["층리가 나타날 수 있음", "묽은 염산에 기포가 생김"]} value={selectedFeature} onSelect={setSelectedFeature} />
-        </>
-      );
-    }
-
-    return (
+      <ChoiceGroup title="🧩 2단계: 변성암 특징"만들어진 흔적" items={["퇴적물이 쌓여 굳어진 모습", "화석이나 생물 흔적이 보일 수 있음"]} value={selectedSedimentFeature} onSelect={setSelectedSedimentFeature} />
+          <ChoiceGroup title="🧩 2단계: 퇴적암 특징" items={["층리가 나타날 수 있음", "묽은 염산에 기포가 생김"]} value={selectedFeature} onSelect={setSelect<h1 style={styles.title}>🪨 중2 과학 암석 연구소</h1>    return (
       <>
-        <ChoiceGroup title="1단계: 변한 흔적" items={["줄무늬나 엽리가 보임", "기존 암석이 변한 모습"]} value={selectedMetamorphicFeature} onSelect={setSelectedMetamorphicFeature} />
-        <ChoiceGroup title="2단계: 변성암 특징" items={["열과 압력을 받은 흔적이 있음", "석회암이 변성되어 만들어짐"]} value={selectedFeature} onSelect={setSelectedFeature} />
+        <ChoiceGroup title="🔥 1단계: 변한 흔적" items={["줄무늬나 엽리가 보임", "기존 암석이 변한 모습"]} value={selectedMetamorphicFeature} onSelect={setSelectedMetamorphicFeature} />
+        <ChoiceGroup title="🧩 2단계: 변성암 특징" items={["열과 압력을 받은 흔적이 있음", "석회암이 변성되어 만들어짐"]} value={selectedFeature} onSelect={setSelectedFeature} />
       </>
     );
   }
@@ -409,12 +385,9 @@ export default function App() {
     return (
       <main style={styles.pageCenter}>
         <Card style={{ width: "min(92vw, 430px)" }}>
-          <h1 style={styles.title}>중2 과학 암석 연구소</h1>
-          <p style={styles.muted}>공유 리더보드에 표시할 이름을 입력하세요.</p>
-          <input
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && startGame()}
+          <h1 style={styles.title}>🪨 중2 과학 암석 연구소</h1>
+          <p style={styles.muted}>리더보드에 표시할 이름을 입력하세요.</p>
+          <inpu<h1 style={styles.heroTitle}>🪨 중2 과학 암석 연구소</h1>Change={(e) =<p style={styles.subtitle}>🌋 화성암 · 🌊 퇴적암 · 🔥 변성암 분류 게임</p>n={(e) => e.key === "Enter" && startGame()}
             placeholder="이름 입력"
             style={styles.input}
           />
@@ -432,8 +405,7 @@ export default function App() {
         <header style={styles.hero}>
           <div>
             <h1 style={styles.heroTitle}>중2 과학 암석 연구소</h1>
-            <p style={styles.subtitle}>화성암 · 퇴적암 · 변성암 분류 게임</p>
-          </div>
+            <p         </div>
           <div style={styles.stats}>
             <Stat label="코인" value={coins} icon="💰" />
             <Stat label="에너지" value={energy} icon="⛏️" />
@@ -443,51 +415,47 @@ export default function App() {
         </header>
 
         <Card>
-          <div style={styles.actionRow}>
-            <div style={styles.message}>{message}</div>
+          <div sty<h2 style={styles.sectionTitle}>🔎 현재 표본 관찰</h2>tyles.message}>{message}</div>
             <div style={styles.buttonRow}>
               <AppButton onClick={mine}>⛏️ 채굴하기</AppButton>
-              <AppButton onClick={classify} kind="secondary">🧪 검증하기</AppButton>
-              <AppButton onClick={refillEnergy}>에너지 충전</AppButton>
-            </div>
-          </div>
-        </Card>
-
-        <div style={styles.mainGrid}>
-          <Card style={{ gridColumn: "span 2" }}>
-            <h2 style={styles.sectionTitle}>🧪 현재 표본 관찰</h2>
+              <App 검증하기</AppButton>
+              <AppB<h3 style={styles.rockName}>{current.icon} {current.name}</h3> style={styles.mainGrid}>
+          <Card 📝 겉모습 단서: {current.clue}le}>🧪 현재 표본 관찰</h2>
             {current ? (
               <div style={styles.observeGrid}>
                 <div style={styles.samplePanel}>
-                  <RockPhoto sample={current} />
-                  <h3 style={styles.rockName}>{current.name}</h3>
+<ChoiceGroup title="🧭 마지막 단계: 암석 종류"e={current} />
+          e}</h3>
                   <p style={styles.clue}>겉모습 단서: {current.clue}</p>
                 </div>
                 <div style={styles.choicePanel}>
                   {renderObservationChoices()}
-                  <ChoiceGroup title="마지막 단계: 암석 종류" items={["화성암", "퇴적암", "변성암"]} value={selectedType} onSelect={setSelectedType} />
+                  <ChoiceGroup title="마지막 {selectedType} onSelect={setSelectedType} />
                 </div>
               </div>
-            ) : (
-              <div style={styles.empty}>채굴하기를 눌러 첫 암석 표본을 찾아보세요.</div>
+            ) :style={styles.empty}>채굴하기를 눌러 첫 암석 표본을 찾아보세요.</div>
             )}
           </Card>
 
           <Card>
-            <h2 style={styles.sectionTitle}>🏅 공유 리더보드</h2>
-            <div style={styles.bestScoreBox}>
-              <span>내 최고점</span>
-              <b>{myBestScore}점</b>
+            <h2 style={styles.sectionTitle}>🏅 리더보드</h2>
+       ox}>
+              <span>🏆 내 최고점</spaScore}점</b>
             </div>
-            <div style={{ display: "grid", gap: 10 }}>
+                      {leaderboard.length === 0 && (
+                <div style={styles.emptyRank}>🪨 아직 등록된 점수가 없습니다.</div>
+              )}
               {leaderboard.map((entry) => (
                 <div key={entry.name} style={{ ...styles.rankRow, background: entry.me ? "#fef3c7" : "#f5f5f4" }}>
-                  <span>{entry.rank}위 · {entry.name}{entry.me ? " 👤" : entry.preset ? " 🤖" : ""}</span>
-                  <b>{entry.score}점</b>
+                  <span>{rankEmoji(entry.rank)} {entry.rank}위 · {entry.name}{entry.me ? " 👤" : ""}</span>
+                  <b>⭐ {entry.score}점</b>
                 </div>
               ))}
             </div>
-            <p style={styles.leaderboardNote}>{serverStatus}</p>
+            <p style={styles.leaderboardNote}>이 리더보드는 현재 브라우저에 저장됩니다.</p>
+            <div style={{ marginTop: 10 }}>
+              <AppButton onClick={resetLeaderboard}>리더보드 초기화</AppButton>
+            </div>
           </Card>
         </div>
 
@@ -499,11 +467,10 @@ export default function App() {
                 const found = Boolean(book[sample.id]);
                 return (
                   <div key={sample.id} style={styles.bookCard}>
-                    <RockPhoto sample={sample} small hidden={!found} />
+                    <RockPh<b>{found ? `${sample.icon} ${sample.name}` : "❔ 미발견 표본"}</b>d} />
                     <div>
                       <b>{found ? sample.name : "미발견 표본"}</b>
-                      <p style={styles.smallText}>{found ? `${sample.type} · ${sample.subtype}` : "관찰하고 분류하면 열립니다."}</p>
-                      {found && <p style={styles.fact}>{sample.fact}</p>}
+                      <p style={styles.smallText}>{found ? `${sample.type} · ${sample.subtype}` : "관찰하고 분류하면 열</p>}
                     </div>
                   </div>
                 );
@@ -511,26 +478,17 @@ export default function App() {
             </div>
           </Card>
 
-          <Card>
-            <h2 style={styles.sectionTitle}>표본 보관함</h2>
+          <Card<h2 style={styles.sectionTitle}>🎒 표본 보관함</h2>e}>표본 보관함</h2>
             <div style={{ display: "grid", gap: 10 }}>
               {SAMPLES.map((sample) => (
                 <div key={sample.id} style={styles.inventoryRow}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <RockPhoto sample={sample} small />
-                    <span><b>{sample.name}</b> × {inventory[sample.id] || 0}</span>
-                  </div>
-                  <AppButton disabled={!inventory[sample.id] || !verified[sample.id]} onClick={() => sellSample(sample.id)} kind="secondary">
+                  <div style={{ display: "flex", alignItems:    <RockPhoto sample={sample} small />
+                    <span><b>{sample.name}</b> × {i<b>{sample.icon} {sample.name}</b> × {inventory[sample.id] || 0}d] || !verified[sample.id]} onClick={() => sellSample(sample.id)} kind="secondary">
                     {verified[sample.id] ? "판매" : "검증 필요"}
                   </AppButton>
-                </div>
-              ))}
-            </div>
+                </div{verified[sample.id] ? "💰 판매" : "🔒 검증 필요"}
             <p style={styles.goal}>학습 목표: 화성암은 알갱이 크기와 색깔, 퇴적암은 층리·화석·염산 반응, 변성암은 엽리·줄무늬·변성 작용의 흔적을 바탕으로 분류하기</p>
-          </Card>
-        </div>
-      </div>
-    </main>
+       </main>
   );
 }
 
@@ -542,14 +500,7 @@ function ChoiceGroup({ title, items, value, onSelect }) {
         {items.map((item) => (
           <AppButton key={item} selected={value === item} onClick={() => onSelect(item)}>
             {item}
-          </AppButton>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Stat({ icon, label, value }) {
+          </AppButton>ion Stat({ icon, label, value }) {
   return (
     <div style={styles.statBox}>
       <span style={{ fontSize: 22 }}>{icon}</span>
@@ -557,18 +508,12 @@ function Stat({ icon, label, value }) {
         <div style={styles.statValue}>{value}</div>
         <div style={styles.statLabel}>{label}</div>
       </div>
-    </div>
-  );
-}
-
-const styles = {
-  page: {
+page: {
     minHeight: "100vh",
     background: "linear-gradient(180deg, #fff7d6 0%, #fffbeb 45%, #f5f5f4 100%)",
     color: "#1c1917",
     padding: 20,
-    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  },
+    fontFamily: "s
   pageCenter: {
     minHeight: "100vh",
     background: "linear-gradient(180deg, #fff7d6 0%, #fffbeb 100%)",
@@ -631,6 +576,14 @@ const styles = {
     fontWeight: 900,
   },
   leaderboardNote: { margin: "12px 0 0", color: "#78716c", fontSize: 12, lineHeight: 1.4 },
+  emptyRank: {
+    background: "#f5f5f4",
+    borderRadius: 16,
+    padding: "14px",
+    color: "#78716c",
+    textAlign: "center",
+    fontWeight: 700,
+  },
   bookGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 },
   bookCard: { display: "flex", gap: 12, background: "#f5f5f4", borderRadius: 18, padding: 12, alignItems: "flex-start" },
   inventoryRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: "#f5f5f4", borderRadius: 18, padding: 12 },
