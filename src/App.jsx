@@ -1,4 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { initializeApp } from "firebase/app";
+import { getDatabase, onValue, ref, set } from "firebase/database";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBR_uqP_bJdTULAkcyQJF4p3ZIkLzY-30",
+  authDomain: "rock-game-a09c2.firebaseapp.com",
+  databaseURL: "https://rock-game-a09c2-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "rock-game-a09c2",
+  storageBucket: "rock-game-a09c2.firebasestorage.app",
+  messagingSenderId: "182019123095",
+  appId: "1:182019123095:web:cda88c83d5a8464a7acd2",
+  measurementId: "G-7NYV3ZLQT5",
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getDatabase(firebaseApp);
 
 const SAMPLES = [
   {
@@ -92,29 +108,20 @@ const STARTING_LEADERBOARD = [
   { name: "채석장 고수", score: 110, preset: true },
 ];
 
-const LEADERBOARD_KEY = "rock-game-leaderboard-v1";
-
-function loadLeaderboard() {
-  try {
-    const saved = window.localStorage.getItem(LEADERBOARD_KEY);
-    if (!saved) return STARTING_LEADERBOARD;
-    const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : STARTING_LEADERBOARD;
-  } catch {
-    return STARTING_LEADERBOARD;
-  }
-}
-
-function saveLeaderboard(entries) {
-  try {
-    window.localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
-  } catch {
-    // localStorage may be unavailable in some browsers.
-  }
-}
-
 function randomSample() {
   return SAMPLES[Math.floor(Math.random() * SAMPLES.length)];
+}
+
+function makePlayerKey(name) {
+  return name
+    .trim()
+    .replaceAll(".", "_")
+    .replaceAll("#", "_")
+    .replaceAll("$", "_")
+    .replaceAll("[", "_")
+    .replaceAll("]", "_")
+    .replaceAll("/", "_")
+    .slice(0, 40);
 }
 
 function AppButton({ children, onClick, disabled, selected, kind = "primary" }) {
@@ -217,7 +224,8 @@ export default function App() {
   const [inventory, setInventory] = useState({});
   const [book, setBook] = useState({});
   const [verified, setVerified] = useState({});
-  const [savedLeaderboard, setSavedLeaderboard] = useState(loadLeaderboard);
+  const [serverLeaderboard, setServerLeaderboard] = useState(STARTING_LEADERBOARD);
+  const [serverStatus, setServerStatus] = useState("리더보드 연결 중...");
   const [selectedType, setSelectedType] = useState("");
   const [selectedGrain, setSelectedGrain] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
@@ -226,32 +234,67 @@ export default function App() {
   const [selectedMetamorphicFeature, setSelectedMetamorphicFeature] = useState("");
 
   const collectedCount = useMemo(() => Object.keys(book).length, [book]);
+
   useEffect(() => {
-    if (!playerName) return;
-    setSavedLeaderboard((prev) => {
-      const withoutMe = prev.filter((entry) => entry.name !== playerName);
-      const oldScore = prev.find((entry) => entry.name === playerName)?.score || 0;
-      const updated = [
-        ...withoutMe,
-        { name: playerName, score: Math.max(oldScore, score), me: true },
-      ]
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
-      saveLeaderboard(updated);
-      return updated;
-    });
-  }, [playerName, score]);
+    const leaderboardRef = ref(db, "leaderboard");
+    const unsubscribe = onValue(
+      leaderboardRef,
+      (snapshot) => {
+        const data = snapshot.val() || {};
+        const firebaseEntries = Object.values(data)
+          .filter((entry) => entry && entry.name && typeof entry.score === "number")
+          .sort((a, b) => b.score - a.score);
+
+        const merged = [...firebaseEntries, ...STARTING_LEADERBOARD].reduce((acc, entry) => {
+          const old = acc.get(entry.name);
+          if (!old || entry.score > old.score) acc.set(entry.name, entry);
+          return acc;
+        }, new Map());
+
+        const top = Array.from(merged.values())
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 10);
+
+        setServerLeaderboard(top);
+        setServerStatus("Firebase 공유 리더보드 연결됨");
+      },
+      () => {
+        setServerLeaderboard(STARTING_LEADERBOARD);
+        setServerStatus("Firebase 연결 실패: 기본 리더보드로 표시 중");
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   const leaderboard = useMemo(() => {
-    return savedLeaderboard
+    return serverLeaderboard
       .map((entry) => ({ ...entry, me: entry.name === playerName }))
       .sort((a, b) => b.score - a.score)
       .map((entry, index) => ({ ...entry, rank: index + 1 }));
-  }, [savedLeaderboard, playerName]);
+  }, [serverLeaderboard, playerName]);
 
   const myBestScore = useMemo(() => {
-    return savedLeaderboard.find((entry) => entry.name === playerName)?.score || score;
-  }, [savedLeaderboard, playerName, score]);
+    return leaderboard.find((entry) => entry.name === playerName)?.score || score;
+  }, [leaderboard, playerName, score]);
+
+  useEffect(() => {
+    if (!playerName) return;
+
+    const oldBest = leaderboard.find((entry) => entry.name === playerName)?.score || 0;
+    const bestScore = Math.max(oldBest, score);
+
+    if (bestScore <= 0) return;
+
+    const key = makePlayerKey(playerName);
+    set(ref(db, `leaderboard/${key}`), {
+      name: playerName,
+      score: bestScore,
+      updatedAt: Date.now(),
+    }).catch(() => {
+      setServerStatus("점수 저장 실패: Firebase 규칙 또는 연결을 확인하세요.");
+    });
+  }, [playerName, score]);
 
   function resetChoices() {
     setSelectedType("");
@@ -332,12 +375,6 @@ export default function App() {
     setMessage("에너지를 충전했습니다.");
   }
 
-  function resetLeaderboard() {
-    setSavedLeaderboard(STARTING_LEADERBOARD);
-    saveLeaderboard(STARTING_LEADERBOARD);
-    setMessage("리더보드를 기본값으로 초기화했습니다.");
-  }
-
   function renderObservationChoices() {
     if (!current) return null;
 
@@ -373,7 +410,7 @@ export default function App() {
       <main style={styles.pageCenter}>
         <Card style={{ width: "min(92vw, 430px)" }}>
           <h1 style={styles.title}>중2 과학 암석 연구소</h1>
-          <p style={styles.muted}>리더보드에 표시할 이름을 입력하세요.</p>
+          <p style={styles.muted}>공유 리더보드에 표시할 이름을 입력하세요.</p>
           <input
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
@@ -437,7 +474,7 @@ export default function App() {
           </Card>
 
           <Card>
-            <h2 style={styles.sectionTitle}>🏅 리더보드</h2>
+            <h2 style={styles.sectionTitle}>🏅 공유 리더보드</h2>
             <div style={styles.bestScoreBox}>
               <span>내 최고점</span>
               <b>{myBestScore}점</b>
@@ -450,10 +487,7 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <p style={styles.leaderboardNote}>이 리더보드는 현재 브라우저에 저장됩니다.</p>
-            <div style={{ marginTop: 10 }}>
-              <AppButton onClick={resetLeaderboard}>리더보드 초기화</AppButton>
-            </div>
+            <p style={styles.leaderboardNote}>{serverStatus}</p>
           </Card>
         </div>
 
