@@ -346,8 +346,8 @@ export default function App() {
     if (!current) return setMessage("먼저 채굴해서 표본을 찾아야 합니다.");
 
     if (current.observeMode === "igneous") {
-      if (!selectedGrain || !selectedColor || !selectedFeature) return setMessage("화성암은 알갱이 크기, 색깔, 추가 특징을 모두 선택하세요.");
-      if (selectedGrain !== current.grain || selectedColor !== current.color || selectedFeature !== current.feature) return penalizeWrong("관찰 결과가 맞지 않습니다. 다시 확인하세요.");
+      if (!selectedGrain || !selectedColor) return setMessage("화성암은 알갱이 크기와 색깔을 모두 선택하세요.");
+      if (selectedGrain !== current.grain || selectedColor !== current.color) return penalizeWrong("관찰 결과가 맞지 않습니다. 알갱이 크기와 색깔을 다시 확인하세요.");
     }
 
     if (current.observeMode === "sedimentary") {
@@ -401,7 +401,6 @@ export default function App() {
         <>
           <ChoiceGroup title="🔬 1단계: 알갱이 크기" items={["큼", "작음"]} value={selectedGrain} onSelect={setSelectedGrain} />
           <ChoiceGroup title="🎨 2단계: 색깔" items={["밝은색 계열", "어두운색 계열"]} value={selectedColor} onSelect={setSelectedColor} />
-          <ChoiceGroup title="✨ 3단계: 추가 특징" items={["알갱이가 눈에 잘 보임", "구멍이 보일 수 있음"]} value={selectedFeature} onSelect={setSelectedFeature} />
         </>
       );
     }
