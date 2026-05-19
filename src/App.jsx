@@ -240,6 +240,7 @@ export default function App() {
   const [level, setLevel] = useState(1);
   const [message, setMessage] = useState("⛏️ 채석장에 오신 것을 환영합니다. 암석 표본을 모아 도감을 완성하세요!");
   const [current, setCurrent] = useState(null);
+  const [currentSolved, setCurrentSolved] = useState(false);
   const [inventory, setInventory] = useState({});
   const [book, setBook] = useState({});
   const [verified, setVerified] = useState({});
@@ -326,6 +327,7 @@ export default function App() {
     changeScore(-10);
     setMessage(`⏭️ ${current.icon} ${current.name} 표본을 넘겼습니다. -10점`);
     setCurrent(null);
+    setCurrentSolved(false);
     resetChoices();
   }
 
@@ -336,6 +338,7 @@ export default function App() {
     }
     const sample = randomSample();
     setCurrent(sample);
+    setCurrentSolved(false);
     setEnergy((e) => e - 1);
     setInventory((prev) => ({ ...prev, [sample.id]: (prev[sample.id] || 0) + 1 }));
     resetChoices();
@@ -344,6 +347,7 @@ export default function App() {
 
   function classify() {
     if (!current) return setMessage("먼저 채굴해서 표본을 찾아야 합니다.");
+    if (currentSolved) return setMessage(`✅ ${current.icon} ${current.name} 표본은 이미 검증되었습니다. 새 표본을 채굴하거나 판매하세요.`);
 
     if (current.observeMode === "igneous") {
       if (!selectedGrain || !selectedColor) return setMessage("화성암은 알갱이 크기와 색깔을 모두 선택하세요.");
@@ -368,6 +372,7 @@ export default function App() {
     setCoins((c) => c + Math.floor(current.value / 2));
     setBook((b) => ({ ...b, [current.id]: current }));
     setVerified((v) => ({ ...v, [current.id]: true }));
+    setCurrentSolved(true);
     setMessage(`정답! ${current.name} 표본이 검증되었습니다. 이제 판매할 수 있습니다.`);
     if (score + gain >= level * 50) {
       setLevel((l) => l + 1);
