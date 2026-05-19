@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 const SAMPLES = [
   {
@@ -87,10 +87,31 @@ const ROCK_IMAGES = {
 };
 
 const STARTING_LEADERBOARD = [
-  { name: "지질학자 민준", score: 180 },
-  { name: "암석왕 서연", score: 145 },
-  { name: "채석장 고수", score: 110 },
+  { name: "지질학자 민준", score: 180, preset: true },
+  { name: "암석왕 서연", score: 145, preset: true },
+  { name: "채석장 고수", score: 110, preset: true },
 ];
+
+const LEADERBOARD_KEY = "rock-game-leaderboard-v1";
+
+function loadLeaderboard() {
+  try {
+    const saved = window.localStorage.getItem(LEADERBOARD_KEY);
+    if (!saved) return STARTING_LEADERBOARD;
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : STARTING_LEADERBOARD;
+  } catch {
+    return STARTING_LEADERBOARD;
+  }
+}
+
+function saveLeaderboard(entries) {
+  try {
+    window.localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
+  } catch {
+    // localStorage may be unavailable in some browsers.
+  }
+}
 
 function randomSample() {
   return SAMPLES[Math.floor(Math.random() * SAMPLES.length)];
@@ -196,6 +217,7 @@ export default function App() {
   const [inventory, setInventory] = useState({});
   const [book, setBook] = useState({});
   const [verified, setVerified] = useState({});
+  const [savedLeaderboard, setSavedLeaderboard] = useState(loadLeaderboard);
   const [selectedType, setSelectedType] = useState("");
   const [selectedGrain, setSelectedGrain] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
@@ -204,11 +226,32 @@ export default function App() {
   const [selectedMetamorphicFeature, setSelectedMetamorphicFeature] = useState("");
 
   const collectedCount = useMemo(() => Object.keys(book).length, [book]);
+  useEffect(() => {
+    if (!playerName) return;
+    setSavedLeaderboard((prev) => {
+      const withoutMe = prev.filter((entry) => entry.name !== playerName);
+      const oldScore = prev.find((entry) => entry.name === playerName)?.score || 0;
+      const updated = [
+        ...withoutMe,
+        { name: playerName, score: Math.max(oldScore, score), me: true },
+      ]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+      saveLeaderboard(updated);
+      return updated;
+    });
+  }, [playerName, score]);
+
   const leaderboard = useMemo(() => {
-    return [...STARTING_LEADERBOARD, { name: playerName || "나", score, me: true }]
+    return savedLeaderboard
+      .map((entry) => ({ ...entry, me: entry.name === playerName }))
       .sort((a, b) => b.score - a.score)
       .map((entry, index) => ({ ...entry, rank: index + 1 }));
-  }, [playerName, score]);
+  }, [savedLeaderboard, playerName]);
+
+  const myBestScore = useMemo(() => {
+    return savedLeaderboard.find((entry) => entry.name === playerName)?.score || score;
+  }, [savedLeaderboard, playerName, score]);
 
   function resetChoices() {
     setSelectedType("");
@@ -287,6 +330,12 @@ export default function App() {
     setCoins((c) => c - 20);
     setEnergy((e) => e + 6);
     setMessage("에너지를 충전했습니다.");
+  }
+
+  function resetLeaderboard() {
+    setSavedLeaderboard(STARTING_LEADERBOARD);
+    saveLeaderboard(STARTING_LEADERBOARD);
+    setMessage("리더보드를 기본값으로 초기화했습니다.");
   }
 
   function renderObservationChoices() {
@@ -389,13 +438,21 @@ export default function App() {
 
           <Card>
             <h2 style={styles.sectionTitle}>🏅 리더보드</h2>
+            <div style={styles.bestScoreBox}>
+              <span>내 최고점</span>
+              <b>{myBestScore}점</b>
+            </div>
             <div style={{ display: "grid", gap: 10 }}>
               {leaderboard.map((entry) => (
                 <div key={entry.name} style={{ ...styles.rankRow, background: entry.me ? "#fef3c7" : "#f5f5f4" }}>
-                  <span>{entry.rank}위 · {entry.name}{entry.me ? " 👤" : ""}</span>
+                  <span>{entry.rank}위 · {entry.name}{entry.me ? " 👤" : entry.preset ? " 🤖" : ""}</span>
                   <b>{entry.score}점</b>
                 </div>
               ))}
+            </div>
+            <p style={styles.leaderboardNote}>이 리더보드는 현재 브라우저에 저장됩니다.</p>
+            <div style={{ marginTop: 10 }}>
+              <AppButton onClick={resetLeaderboard}>리더보드 초기화</AppButton>
             </div>
           </Card>
         </div>
@@ -529,6 +586,17 @@ const styles = {
   choiceTitle: { margin: "0 0 8px", fontWeight: 900, color: "#44403c" },
   choiceGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 },
   rankRow: { borderRadius: 16, padding: "12px 14px", display: "flex", justifyContent: "space-between", gap: 8 },
+  bestScoreBox: {
+    background: "#ecfccb",
+    borderRadius: 18,
+    padding: "14px 16px",
+    marginBottom: 12,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    fontWeight: 900,
+  },
+  leaderboardNote: { margin: "12px 0 0", color: "#78716c", fontSize: 12, lineHeight: 1.4 },
   bookGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 },
   bookCard: { display: "flex", gap: 12, background: "#f5f5f4", borderRadius: 18, padding: 12, alignItems: "flex-start" },
   inventoryRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: "#f5f5f4", borderRadius: 18, padding: 12 },
