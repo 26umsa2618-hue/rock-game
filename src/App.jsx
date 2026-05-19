@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { initializeApp } from "firebase/app";
+import { getDatabase, onValue, ref, set } from "firebase/database";
 
 const SAMPLES = [
   {
@@ -94,25 +96,21 @@ const ROCK_IMAGES = {
 
 const STARTING_LEADERBOARD = [];
 
-const LEADERBOARD_KEY = "rock-game-leaderboard-v1";
+const firebaseConfig = {
+  apiKey: "AIzaSyBR_uqP_bJdTULAkcyQJF4p3ZIkLzY-30",
+  authDomain: "rock-game-a09c2.firebaseapp.com",
+  databaseURL: "https://rock-game-a09c2-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "rock-game-a09c2",
+  storageBucket: "rock-game-a09c2.firebasestorage.app",
+  messagingSenderId: "182019123095",
+  appId: "1:182019123095:web:cda88c83d5a8464a7acd2",
+};
 
-function loadLeaderboard() {
-  try {
-    const saved = window.localStorage.getItem(LEADERBOARD_KEY);
-    if (!saved) return STARTING_LEADERBOARD;
-    const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : STARTING_LEADERBOARD;
-  } catch {
-    return STARTING_LEADERBOARD;
-  }
-}
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getDatabase(firebaseApp);
 
-function saveLeaderboard(entries) {
-  try {
-    window.localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
-  } catch {
-    // localStorage may be unavailable in some browsers.
-  }
+function safeKey(name) {
+  return name.trim().replace(/[.#$\[\]/]/g, "_").slice(0, 30) || "player";
 }
 
 function randomSample() {
@@ -233,7 +231,7 @@ export default function App() {
   const [inventory, setInventory] = useState({});
   const [book, setBook] = useState({});
   const [verified, setVerified] = useState({});
-  const [savedLeaderboard, setSavedLeaderboard] = useState(loadLeaderboard);
+  const [savedLeaderboard, setSavedLeaderboard] = useState(STARTING_LEADERBOARD);
   const [selectedType, setSelectedType] = useState("");
   const [selectedGrain, setSelectedGrain] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
@@ -243,18 +241,27 @@ export default function App() {
 
   const collectedCount = useMemo(() => Object.keys(book).length, [book]);
   useEffect(() => {
-    if (!playerName) return;
-    setSavedLeaderboard((prev) => {
-      const withoutMe = prev.filter((entry) => entry.name !== playerName);
-      const oldScore = prev.find((entry) => entry.name === playerName)?.score || 0;
-      const updated = [
-        ...withoutMe,
-        { name: playerName, score: Math.max(oldScore, score), me: true },
-      ]
+    const leaderboardRef = ref(db, "leaderboard");
+    const unsubscribe = onValue(leaderboardRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      const entries = Object.values(data)
+        .filter((entry) => entry && entry.name && typeof entry.score === "number")
         .sort((a, b) => b.score - a.score)
         .slice(0, 10);
-      saveLeaderboard(updated);
-      return updated;
+      setSavedLeaderboard(entries);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!playerName) return;
+    const playerKey = safeKey(playerName);
+    const oldScore = savedLeaderboard.find((entry) => entry.name === playerName)?.score || 0;
+    const bestScore = Math.max(oldScore, score);
+    set(ref(db, `leaderboard/${playerKey}`), {
+      name: playerName,
+      score: bestScore,
+      updatedAt: Date.now(),
     });
   }, [playerName, score]);
 
@@ -348,12 +355,7 @@ export default function App() {
     setMessage("에너지를 충전했습니다.");
   }
 
-  function resetLeaderboard() {
-    setSavedLeaderboard(STARTING_LEADERBOARD);
-    saveLeaderboard(STARTING_LEADERBOARD);
-    setMessage("리더보드를 기본값으로 초기화했습니다.");
-  }
-
+  
   function renderObservationChoices() {
     if (!current) return null;
 
@@ -411,7 +413,7 @@ export default function App() {
         <header style={styles.hero}>
           <div>
             <h1 style={styles.heroTitle}>🪨 중2 과학 암석 연구소</h1>
-            <p style={styles.subtitle}>🌋 화성암 · 🌊 퇴적암 · 🔥 변성암 분류 게임</p>
+            <p style={styles.subtitle}>🧪 관찰하고 · 🧭 분류해서 · ✅ 검증하고 · 💰 판매하세요</p>
           </div>
           <div style={styles.stats}>
             <Stat label="코인" value={coins} icon="💰" />
@@ -420,6 +422,14 @@ export default function App() {
             <Stat label="레벨" value={level} icon="🏆" />
           </div>
         </header>
+
+        <div style={styles.gameGuide}>
+          <div style={styles.guideStep}>⛏️ <b>1. 채굴</b><span>암석 표본 찾기</span></div>
+          <div style={styles.guideStep}>🔎 <b>2. 관찰</b><span>특징 고르기</span></div>
+          <div style={styles.guideStep}>🧭 <b>3. 분류</b><span>암석 종류 맞히기</span></div>
+          <div style={styles.guideStep}>✅ <b>4. 검증</b><span>도감 등록</span></div>
+          <div style={styles.guideStep}>💰 <b>5. 판매</b><span>점수 올리기</span></div>
+        </div>
 
         <Card>
           <div style={styles.actionRow}>
@@ -434,7 +444,7 @@ export default function App() {
 
         <div style={styles.mainGrid}>
           <Card style={{ gridColumn: "span 2" }}>
-            <h2 style={styles.sectionTitle}>🔎 현재 표본 관찰</h2>
+            <h2 style={styles.sectionTitle}>🔎 암석 감정소 · 현재 표본 관찰</h2>
             {current ? (
               <div style={styles.observeGrid}>
                 <div style={styles.samplePanel}>
@@ -453,7 +463,7 @@ export default function App() {
           </Card>
 
           <Card>
-            <h2 style={styles.sectionTitle}>🏅 리더보드</h2>
+            <h2 style={styles.sectionTitle}>🏅 탐험가 랭킹 · 리더보드</h2>
             <div style={styles.bestScoreBox}>
               <span>🏆 내 최고점</span>
               <b>⭐ {myBestScore}점</b>
@@ -469,16 +479,14 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <p style={styles.leaderboardNote}>이 리더보드는 현재 브라우저에 저장됩니다.</p>
-            <div style={{ marginTop: 10 }}>
-              <AppButton onClick={resetLeaderboard}>리더보드 초기화</AppButton>
-            </div>
+            <p style={styles.leaderboardNote}>Firebase 공유 리더보드와 연결되어 있습니다.</p>
+            
           </Card>
         </div>
 
         <div style={styles.bottomGrid}>
           <Card>
-            <h2 style={styles.sectionTitle}>📘 암석 도감 {collectedCount}/{SAMPLES.length}</h2>
+            <h2 style={styles.sectionTitle}>📘 수집 도감 · 암석 도감 {collectedCount}/{SAMPLES.length}</h2>
             <div style={styles.bookGrid}>
               {SAMPLES.map((sample) => {
                 const found = Boolean(book[sample.id]);
@@ -497,7 +505,7 @@ export default function App() {
           </Card>
 
           <Card>
-            <h2 style={styles.sectionTitle}>🎒 표본 보관함</h2>
+            <h2 style={styles.sectionTitle}>🎒 내 가방 · 표본 보관함</h2>
             <div style={{ display: "grid", gap: 10 }}>
               {SAMPLES.map((sample) => (
                 <div key={sample.id} style={styles.inventoryRow}>
@@ -572,6 +580,20 @@ const styles = {
     alignItems: "center",
     gap: 20,
     boxShadow: "0 12px 32px rgba(92,64,28,0.10)",
+  },
+  gameGuide: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: 10,
+  },
+  guideStep: {
+    background: "#ffffff",
+    borderRadius: 18,
+    padding: "12px 14px",
+    display: "grid",
+    gap: 4,
+    boxShadow: "0 8px 20px rgba(92,64,28,0.08)",
+    border: "1px solid rgba(120,113,108,0.12)",
   },
   heroTitle: { margin: 0, fontSize: "clamp(28px, 4vw, 46px)", letterSpacing: -1.5 },
   title: { margin: 0, fontSize: 32, letterSpacing: -1 },
