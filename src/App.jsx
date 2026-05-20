@@ -45,12 +45,19 @@ const save=(n,d)=>{if(n){localStorage.setItem(K,n);localStorage.setItem(P+safe(n
 const levelByScore=s=>LEVELS.reduce((a,l)=>s>=l.min?l:a,LEVELS[0]);
 const nextLevel=lv=>LEVELS.find(l=>l.lv===lv+1);
 
-function rockArt(r,hidden=false){
- if(hidden)return null;
- const bg={granite:"#fde68a",gabbro:"#111827",basalt:"#1f2937",rhyolite:"#e5e7eb",conglomerate:"#d6d3d1",sandstone:"#fbbf24",mudstone:"#94a3b8",limestone:"#e0f2fe",gneiss:"#64748b",marble:"#f8fafc"}[r.id]||"#ddd";
- const fg={basalt:"#fff",gabbro:"#fff",gneiss:"#fff",mudstone:"#111827"}[r.id]||"#1c1917";
- return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220"><rect width="320" height="220" rx="28" fill="${bg}"/><circle cx="72" cy="62" r="22" fill="${fg}" opacity=".18"/><circle cx="138" cy="128" r="34" fill="${fg}" opacity=".13"/><circle cx="248" cy="74" r="28" fill="${fg}" opacity=".16"/><path d="M38 170 C88 126, 112 182, 156 145 S232 128, 284 164 L284 200 L38 200Z" fill="${fg}" opacity=".30"/><text x="160" y="116" text-anchor="middle" dominant-baseline="middle" font-size="46">${r.icon}</text><text x="160" y="172" text-anchor="middle" font-family="Arial" font-size="28" font-weight="800" fill="${fg}">${r.name}</text></svg>`)}`;
-}
+
+const IMG={
+granite:"https://commons.wikimedia.org/wiki/Special:FilePath/Granite.jpg",
+gabbro:"https://commons.wikimedia.org/wiki/Special:FilePath/Gabbro.jpg",
+basalt:"https://commons.wikimedia.org/wiki/Special:FilePath/BasaltUSGOV.jpg",
+rhyolite:"https://commons.wikimedia.org/wiki/Special:FilePath/RhyoliteUSGOV.jpg",
+conglomerate:"https://commons.wikimedia.org/wiki/Special:FilePath/Conglomerate%20Rock%20in%20Spain.jpg",
+sandstone:"https://commons.wikimedia.org/wiki/Special:FilePath/Jacobsville%20Sandstone%20sample.jpg",
+mudstone:"https://commons.wikimedia.org/wiki/Special:FilePath/Mudstone.JPG",
+limestone:"https://commons.wikimedia.org/wiki/Special:FilePath/Limestone%20(coquina)%20student%20sample.JPG",
+gneiss:"https://commons.wikimedia.org/wiki/Special:FilePath/Gneiss.jpg",
+marble:"https://commons.wikimedia.org/wiki/Special:FilePath/Carrara%20marble.jpg"
+};
 
 export default function App(){
  const initialName=useMemo(loadName,[]);
@@ -114,5 +121,5 @@ export default function App(){
 function Choices({r,vals,sets}){return <div>{r.type==="화성암"&&<><Group t="알갱이 크기" a={["큼","작음"]} v={vals.grain} f={sets.setGrain}/><Group t="색깔" a={["밝은색 계열","어두운색 계열"]} v={vals.color} f={sets.setColor}/></>}{r.type==="퇴적암"&&<><Group t="만들어진 흔적" a={["퇴적물이 쌓여 굳어진 모습","화석이나 생물 흔적이 보일 수 있음"]} v={vals.made} f={sets.setMade}/><Group t="특징" a={["큰 자갈 알갱이가 보임","층리가 나타날 수 있음","알갱이가 매우 작음","묽은 염산에 기포가 생김"]} v={vals.feature} f={sets.setFeature}/></>}{r.type==="변성암"&&<><Group t="변한 흔적" a={["줄무늬나 엽리가 보임","기존 암석이 변한 모습"]} v={vals.meta} f={sets.setMeta}/><Group t="특징" a={["열과 압력을 받은 흔적이 있음","석회암이 변성되어 만들어짐"]} v={vals.feature} f={sets.setFeature}/></>}<Group t="암석 종류" a={["화성암","퇴적암","변성암"]} v={vals.kind} f={sets.setKind}/></div>}
 function Group({t,a,v,f}){return <div className="choices"><b>{t}</b>{a.map(x=><button className={v===x?"selected":""} onClick={()=>f(x)} key={x}>{x}</button>)}</div>}
 function World({title,desc,children}){return <section className="card world"><h2>{title}</h2>{children}<p>{desc}</p></section>}
-function Photo({r,hidden}){return <div className="photo">{hidden?"?":<img src={rockArt(r)} alt={r.name}/>}</div>}
+function Photo({r,hidden}){return <div className="photo">{hidden?"?":<img src={IMG[r.id]} alt={r.name} onError={e=>{e.currentTarget.style.display="none";e.currentTarget.parentElement.textContent=r.icon+" "+r.name}}/>}</div>}
 function Stat({i,l,v}){return <div className="stat"><span>{i}</span><b>{v}</b><small>{l}</small></div>}
