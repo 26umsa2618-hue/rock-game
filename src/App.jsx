@@ -32,6 +32,19 @@ const SAMPLES = [
     value: 14,
   },
   {
+    id: "conglomerate",
+    name: "역암",
+    icon: "🪨",
+    type: "퇴적암",
+    subtype: "쇄설성 퇴적암",
+    clue: "둥글고 큰 자갈들이 모여 굳어진 모습이다.",
+    observeMode: "sedimentary",
+    sedimentFeature: "퇴적물이 쌓여 굳어진 모습",
+    feature: "큰 자갈 알갱이가 보임",
+    fact: "자갈이 쌓이고 다져지고 굳어져 만들어진 퇴적암이다.",
+    value: 15,
+  },
+  {
     id: "sandstone",
     name: "사암",
     icon: "🏜️",
@@ -97,6 +110,14 @@ const ROCK_IMAGES = {
 const STARTING_LEADERBOARD = [];
 const BROWSER_PLAYER_KEY = "rock-game-browser-player-v1";
 const GAME_STATE_PREFIX = "rock-game-state-v1:";
+
+const LEVELS = [
+  { level: 1, title: "초보 채굴가", minScore: 0, rewardCoins: 0, rewardEnergy: 0, bonus: 0 },
+  { level: 2, title: "암석 수집가", minScore: 60, rewardCoins: 20, rewardEnergy: 3, bonus: 2 },
+  { level: 3, title: "표본 감정사", minScore: 150, rewardCoins: 35, rewardEnergy: 4, bonus: 4 },
+  { level: 4, title: "지질 탐험가", minScore: 280, rewardCoins: 50, rewardEnergy: 5, bonus: 6 },
+  { level: 5, title: "암석 박사", minScore: 450, rewardCoins: 80, rewardEnergy: 6, bonus: 9 },
+];
 
 const DEFAULT_GAME_STATE = {
   coins: 50,
@@ -170,6 +191,33 @@ function randomSample() {
   return SAMPLES[Math.floor(Math.random() * SAMPLES.length)];
 }
 
+function randomFromIds(ids) {
+  const choices = SAMPLES.filter((sample) => ids.includes(sample.id));
+  return choices[Math.floor(Math.random() * choices.length)] || randomSample();
+}
+
+function sampleFromGeologyZone(xRatio, yRatio) {
+  // Educational click zones:
+  // top/crater = fast-cooling lava -> basalt
+  // bottom/deep magma = slow-cooling magma -> granite
+  if (yRatio < 0.5) return randomFromIds(["basalt"]);
+  return randomFromIds(["granite"]);
+}
+
+function sampleFromPondZone(xRatio, yRatio) {
+  // Fish POV sedimentary environment:
+  // lower sandy bed = sandstone
+  // shell/fossil-rich bed = limestone
+  if (xRatio < 0.5) return randomFromIds(["sandstone"]);
+  return randomFromIds(["limestone"]);
+}
+
+function metamorphicResultFromSource(sourceId) {
+  if (sourceId === "granite") return SAMPLES.find((sample) => sample.id === "gneiss");
+  if (sourceId === "limestone") return SAMPLES.find((sample) => sample.id === "marble");
+  return null;
+}
+
 function rankEmoji(rank) {
   if (rank === 1) return "🥇";
   if (rank === 2) return "🥈";
@@ -182,6 +230,31 @@ function typeEmoji(type) {
   if (type === "퇴적암") return "🌊";
   if (type === "변성암") return "🔥";
   return "🪨";
+}
+
+function getLevelInfo(level) {
+  return LEVELS.find((item) => item.level === level) || LEVELS[0];
+}
+
+function getLevelFromScore(score) {
+  let current = LEVELS[0];
+  for (const level of LEVELS) {
+    if (score >= level.minScore) current = level;
+  }
+  return current.level;
+}
+
+function getNextLevelInfo(level) {
+  return LEVELS.find((item) => item.level === level + 1) || null;
+}
+
+function getProgressPercent(score, level) {
+  const current = getLevelInfo(level);
+  const next = getNextLevelInfo(level);
+  if (!next) return 100;
+  const range = next.minScore - current.minScore;
+  const progress = score - current.minScore;
+  return Math.max(0, Math.min(100, Math.round((progress / range) * 100)));
 }
 
 function AppButton({ children, onClick, disabled, selected, kind = "primary" }) {
@@ -294,6 +367,7 @@ export default function App() {
   const [level, setLevel] = useState(initialGameState.level);
   const [message, setMessage] = useState("⛏️ 채석장에 오신 것을 환영합니다. 암석 표본을 모아 도감을 완성하세요!");
   const [current, setCurrent] = useState(null);
+  const [volcanoPop, setVolcanoPop] = useState(null);
   const [currentSolved, setCurrentSolved] = useState(false);
   const [inventory, setInventory] = useState(initialGameState.inventory || {});
   const [book, setBook] = useState(initialGameState.book || {});
@@ -308,6 +382,9 @@ export default function App() {
   const [selectedMetamorphicFeature, setSelectedMetamorphicFeature] = useState("");
 
   const collectedCount = useMemo(() => Object.keys(book).length, [book]);
+  const levelInfo = useMemo(() => getLevelInfo(level), [level]);
+  const nextLevelInfo = useMemo(() => getNextLevelInfo(level), [level]);
+  const levelProgress = useMemo(() => getProgressPercent(score, level), [score, level]);
 
   useEffect(() => {
     if (!playerName) return;
@@ -397,9 +474,26 @@ export default function App() {
     setScore((s) => Math.max(0, s + delta));
   }
 
+  function applyScoreGain(gain) {
+    setScore((oldScore) => {
+      const newScore = Math.max(0, oldScore + gain);
+      const oldLevel = getLevelFromScore(oldScore);
+      const newLevel = getLevelFromScore(newScore);
+      if (newLevel > oldLevel) {
+        const reached = getLevelInfo(newLevel);
+        setLevel(newLevel);
+        setCoins((c) => c + reached.rewardCoins);
+        setEnergy((e) => e + reached.rewardEnergy);
+        setMessage(`🎉 레벨 업! Lv.${newLevel} ${reached.title} 달성! +${reached.rewardCoins}코인, +${reached.rewardEnergy}에너지`);
+      }
+      return newScore;
+    });
+  }
+
   function penalizeWrong(reason) {
     changeScore(-3);
-    setMessage(`❌ ${reason} -3점`);
+    setCoins((c) => Math.max(0, c - 8));
+    setMessage(`❌ ${reason} -3점, -8코인`);
   }
 
   function skipSample() {
@@ -414,18 +508,61 @@ export default function App() {
     resetChoices();
   }
 
-  function mine() {
+  function mine(sampleOverride = null) {
     if (energy <= 0) {
       setMessage("에너지가 부족합니다. 에너지 충전을 눌러 주세요.");
       return;
     }
-    const sample = randomSample();
+    const sample = sampleOverride || randomSample();
     setCurrent(sample);
+    setVolcanoPop(sample);
     setCurrentSolved(false);
     setEnergy((e) => e - 1);
     setInventory((prev) => ({ ...prev, [sample.id]: (prev[sample.id] || 0) + 1 }));
     resetChoices();
-    setMessage(`🔎 새 표본 발견: ${sample.icon} ${sample.name}. 관찰 항목을 고르고 검증하세요.`);
+    setMessage(`🌋 화산에서 ${sample.icon} ${sample.name} 표본이 나왔습니다. 관찰 항목을 고르고 검증하세요.`);
+  }
+
+  function mineFromVolcano(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const xRatio = (event.clientX - rect.left) / rect.width;
+    const yRatio = (event.clientY - rect.top) / rect.height;
+    const sample = sampleFromGeologyZone(xRatio, yRatio);
+    mine(sample);
+  }
+
+  function mineFromPond(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const xRatio = (event.clientX - rect.left) / rect.width;
+    const yRatio = (event.clientY - rect.top) / rect.height;
+    const sample = sampleFromPondZone(xRatio, yRatio);
+    mine(sample);
+  }
+
+  function transformToMetamorphic(sourceId) {
+    const source = SAMPLES.find((sample) => sample.id === sourceId);
+    const result = metamorphicResultFromSource(sourceId);
+    if (!source || !result) return;
+    if ((inventory[sourceId] || 0) <= 0) {
+      setMessage(`🔥 ${source.name} 표본이 필요합니다. 먼저 채굴해 주세요.`);
+      return;
+    }
+    if (energy <= 0) {
+      setMessage("🔥 에너지가 부족합니다. 에너지 충전을 눌러 주세요.");
+      return;
+    }
+
+    setInventory((prev) => ({
+      ...prev,
+      [sourceId]: Math.max(0, (prev[sourceId] || 0) - 1),
+      [result.id]: (prev[result.id] || 0) + 1,
+    }));
+    setEnergy((e) => e - 1);
+    setCurrent(result);
+    setVolcanoPop(result);
+    setCurrentSolved(false);
+    resetChoices();
+    setMessage(`🔥 ${source.icon} ${source.name}에 열과 압력을 가해 ${result.icon} ${result.name} 표본이 만들어졌습니다.`);
   }
 
   function classify() {
@@ -450,17 +587,14 @@ export default function App() {
     if (!selectedType) return setMessage("암석 종류를 선택하세요.");
     if (selectedType !== current.type) return penalizeWrong("암석 종류가 맞지 않습니다.");
 
-    const gain = 10 + level * 2;
-    changeScore(gain);
+
+    const gain = 12 + levelInfo.bonus;
+    applyScoreGain(gain);
     setCoins((c) => c + Math.floor(current.value / 2));
     setBook((b) => ({ ...b, [current.id]: current }));
     setVerified((v) => ({ ...v, [current.id]: true }));
     setCurrentSolved(true);
-    setMessage(`정답! ${current.name} 표본이 검증되었습니다. 이제 판매할 수 있습니다.`);
-    if (score + gain >= level * 50) {
-      setLevel((l) => l + 1);
-      setEnergy((e) => e + 3);
-    }
+    setMessage(`✅ 정답! ${current.icon} ${current.name} 표본이 검증되었습니다. +${gain}점`);
   }
 
   function sellSample(id) {
@@ -469,15 +603,15 @@ export default function App() {
     if (!verified[id]) return setMessage("아직 검증되지 않은 표본입니다.");
     setInventory((prev) => ({ ...prev, [id]: prev[id] - 1 }));
     setCoins((c) => c + sample.value);
-    changeScore(5);
+    applyScoreGain(5);
     setMessage(`${sample.name} 검증 표본을 과학관에 판매했습니다. +${sample.value} 코인`);
   }
 
   function refillEnergy() {
-    if (coins < 20) return setMessage("에너지 충전에는 20코인이 필요합니다.");
-    setCoins((c) => c - 20);
-    setEnergy((e) => e + 6);
-    setMessage("에너지를 충전했습니다.");
+    if (coins < 35) return setMessage("⚡ 에너지 충전에는 35코인이 필요합니다.");
+    setCoins((c) => c - 35);
+    setEnergy((e) => e + 4);
+    setMessage("⚡ 에너지를 4만큼 충전했습니다. -35코인");
   }
 
   
@@ -538,15 +672,32 @@ export default function App() {
         <header style={styles.hero}>
           <div>
             <h1 style={styles.heroTitle}>🪨 중2 과학 암석 연구소</h1>
-            <p style={styles.subtitle}>🧪 관찰하고 · 🧭 분류해서 · ✅ 검증하고 · 💰 판매하세요</p>
+            <p style={styles.subtitle}>🧪 관찰하고 · 🧭 분류해서 · ✅ 검증하고 · 💰 코인을 관리하세요</p>
           </div>
           <div style={styles.stats}>
             <Stat label="코인" value={coins} icon="💰" />
             <Stat label="에너지" value={energy} icon="⛏️" />
             <Stat label="점수" value={score} icon="⭐" />
-            <Stat label="레벨" value={level} icon="🏆" />
+            <Stat label={levelInfo.title} value={`Lv.${level}`} icon="🏆" />
           </div>
         </header>
+
+        <Card>
+          <div style={styles.levelPanel}>
+            <div>
+              <b>🏆 Lv.{level} {levelInfo.title}</b>
+              <p style={styles.levelText}>
+                {nextLevelInfo
+                  ? `다음 레벨: Lv.${nextLevelInfo.level} ${nextLevelInfo.title} · ${nextLevelInfo.minScore - score}점 남음`
+                  : "최고 레벨입니다!"}
+              </p>
+            </div>
+            <div style={styles.progressTrack}>
+              <div style={{ ...styles.progressFill, width: `${levelProgress}%` }} />
+            </div>
+            <div style={styles.levelBonus}>정답 보너스 +{levelInfo.bonus}점</div>
+          </div>
+        </Card>
 
         <div style={styles.gameGuide}>
           <div style={styles.guideStep}>⛏️ <b>1. 채굴</b><span>암석 표본 찾기</span></div>
@@ -560,10 +711,77 @@ export default function App() {
           <div style={styles.actionRow}>
             <div style={styles.message}>{message}</div>
             <div style={styles.buttonRow}>
-              <AppButton onClick={mine}>⛏️ 채굴하기</AppButton>
               <AppButton onClick={classify} kind="secondary">🧪 검증하기</AppButton>
-              <AppButton onClick={refillEnergy}>에너지 충전</AppButton>
+              <AppButton onClick={refillEnergy}>⚡ 에너지 충전 -35코인</AppButton>
               <AppButton onClick={skipSample}>⏭️ 넘기기 -10점</AppButton>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <h2 style={styles.sectionTitle}>🌋 화산 채굴장</h2>
+          <div style={styles.volcanoWrap}>
+            <button onClick={mineFromVolcano} disabled={energy <= 0} style={styles.volcanoButton} title="지질 단면을 눌러 암석 채굴하기">
+              <div style={styles.volcanoSmoke}>☁️ ☁️ ☁️</div>
+              <div style={styles.volcanoCrater}>{volcanoPop ? volcanoPop.icon : "✨"}</div>
+              <div style={styles.volcanoBody}>🌋</div>
+              <div style={styles.zoneTop}>현무암<br />빠르게 식음</div>
+              <div style={styles.zoneBottom}>화강암<br />천천히 식음</div>
+              <div style={styles.volcanoHint}>{energy > 0 ? "위쪽=현무암 · 아래쪽=화강암" : "에너지 부족"}</div>
+            </button>
+            <div style={styles.volcanoResult}>
+              {volcanoPop ? (
+                <>
+                  <b>{volcanoPop.icon} 방금 나온 표본: {volcanoPop.name}</b>
+                  <span>{typeEmoji(volcanoPop.type)} {volcanoPop.type} · 관찰 후 검증하세요</span>
+                </>
+              ) : (
+                <>
+                  <b>아직 나온 표본이 없습니다.</b>
+                  <span>위쪽을 누르면 현무암, 아래쪽을 누르면 화강암이 나옵니다.</span>
+                </>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <h2 style={styles.sectionTitle}>🐟 연못 퇴적층 · 물고기 시점</h2>
+          <div style={styles.pondWrap}>
+            <button onClick={mineFromPond} disabled={energy <= 0} style={styles.pondButton} title="연못 바닥 퇴적층을 눌러 암석 채굴하기">
+              <div style={styles.pondWater}>🐟  🫧  🐠  🫧</div>
+              <div style={styles.pondLayerTop}>물속에서 퇴적물이 가라앉음</div>
+              <div style={styles.pondLayerSand}>🏜️ 사암<br />모래가 굳음</div>
+              <div style={styles.pondLayerShell}>🐚 석회암<br />조개껍데기/생물 흔적</div>
+              <div style={styles.pondHint}>{energy > 0 ? "왼쪽=사암 · 오른쪽=석회암" : "에너지 부족"}</div>
+            </button>
+            <div style={styles.volcanoResult}>
+              <b>퇴적암은 어디서 생길까?</b>
+              <span>연못·강·바다 바닥처럼 퇴적물이 쌓이는 곳에서 만들어질 수 있어요.</span>
+              <span>왼쪽 모래층을 누르면 사암, 오른쪽 조개층을 누르면 석회암이 나옵니다.</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <h2 style={styles.sectionTitle}>🔥 변성 작용 실험실</h2>
+          <div style={styles.metamorphicWrap}>
+            <div style={styles.metamorphicMachine}>
+              <div style={styles.pressureTop}>⬇️ 압력</div>
+              <div style={styles.heatCore}>🔥 열 + 압력 🔥</div>
+              <div style={styles.pressureBottom}>⬆️ 압력</div>
+            </div>
+            <div style={styles.metamorphicOptions}>
+              <button style={styles.metamorphicChoice} onClick={() => transformToMetamorphic("granite")}>
+                <b>🧱 화강암 넣기</b>
+                <span>→ 〰️ 편마암</span>
+                <small>높은 열과 압력으로 줄무늬가 생김</small>
+              </button>
+              <button style={styles.metamorphicChoice} onClick={() => transformToMetamorphic("limestone")}>
+                <b>🐚 석회암 넣기</b>
+                <span>→ 🏛️ 대리암</span>
+                <small>석회암이 변성 작용을 받아 변함</small>
+              </button>
             </div>
           </div>
         </Card>
@@ -645,7 +863,7 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <p style={styles.goal}>학습 목표: 화성암은 알갱이 크기와 색깔, 퇴적암은 층리·화석·염산 반응, 변성암은 엽리·줄무늬·변성 작용의 흔적을 바탕으로 분류하기</p>
+            <p style={styles.goal}>학습 목표: 화성암은 알갱이 크기와 색깔, 퇴적암은 층리·화석·염산 반응, 변성암은 엽리·줄무늬·변성 작용의 흔적을 바탕으로 분류하기 · 오답은 코인이 줄어듭니다.</p>
           </Card>
         </div>
       </div>
@@ -728,6 +946,248 @@ const styles = {
     backdropFilter: "blur(16px)",
     WebkitBackdropFilter: "blur(16px)",
   },
+  volcanoWrap: {
+    display: "grid",
+    gridTemplateColumns: "minmax(240px, 360px) 1fr",
+    gap: 18,
+    alignItems: "center",
+  },
+  volcanoButton: {
+    minHeight: 260,
+    border: "1px solid rgba(255,255,255,0.70)",
+    borderRadius: 34,
+    background: "linear-gradient(180deg, rgba(255,255,255,0.42), rgba(254,202,202,0.42))",
+    cursor: "pointer",
+    boxShadow: "0 18px 45px rgba(127,29,29,0.15)",
+    display: "grid",
+    placeItems: "center",
+    position: "relative",
+    overflow: "hidden",
+    backdropFilter: "blur(18px)",
+    WebkitBackdropFilter: "blur(18px)",
+  },
+  volcanoSmoke: {
+    position: "absolute",
+    top: 18,
+    opacity: 0.55,
+    fontSize: 24,
+  },
+  volcanoCrater: {
+    position: "absolute",
+    top: 78,
+    width: 72,
+    height: 72,
+    borderRadius: "50%",
+    display: "grid",
+    placeItems: "center",
+    background: "rgba(17,24,39,0.78)",
+    color: "white",
+    fontSize: 32,
+    boxShadow: "0 0 32px rgba(249,115,22,0.55)",
+    zIndex: 2,
+  },
+  volcanoBody: {
+    fontSize: 132,
+    lineHeight: 1,
+    transform: "translateY(20px)",
+    filter: "drop-shadow(0 18px 16px rgba(120,53,15,0.24))",
+  },
+  volcanoHint: {
+    position: "absolute",
+    bottom: 18,
+    background: "rgba(255,255,255,0.58)",
+    border: "1px solid rgba(255,255,255,0.68)",
+    borderRadius: 999,
+    padding: "8px 14px",
+    fontSize: 13,
+    fontWeight: 900,
+  },
+  zoneTop: {
+    position: "absolute",
+    top: 18,
+    right: 18,
+    fontSize: 11,
+    fontWeight: 900,
+    color: "#7f1d1d",
+    background: "rgba(254,226,226,0.66)",
+    borderRadius: 14,
+    padding: "7px 9px",
+    border: "1px solid rgba(255,255,255,0.62)",
+  },
+  zoneBottom: {
+    position: "absolute",
+    bottom: 58,
+    left: "50%",
+    transform: "translateX(-50%)",
+    fontSize: 11,
+    fontWeight: 900,
+    color: "#78350f",
+    background: "rgba(254,243,199,0.70)",
+    borderRadius: 14,
+    padding: "7px 9px",
+    border: "1px solid rgba(255,255,255,0.62)",
+  },
+  volcanoResult: {
+    minHeight: 120,
+    borderRadius: 26,
+    background: "rgba(255,255,255,0.36)",
+    border: "1px solid rgba(255,255,255,0.58)",
+    padding: 18,
+    display: "grid",
+    gap: 8,
+    alignContent: "center",
+    boxShadow: "0 12px 28px rgba(15,23,42,0.08)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+  },
+  pondWrap: {
+    display: "grid",
+    gridTemplateColumns: "minmax(260px, 420px) 1fr",
+    gap: 18,
+    alignItems: "center",
+  },
+  pondButton: {
+    minHeight: 260,
+    border: "1px solid rgba(255,255,255,0.70)",
+    borderRadius: 34,
+    background: "linear-gradient(180deg, rgba(186,230,253,0.58) 0%, rgba(125,211,252,0.40) 48%, rgba(254,243,199,0.62) 100%)",
+    cursor: "pointer",
+    boxShadow: "0 18px 45px rgba(14,116,144,0.16)",
+    display: "grid",
+    placeItems: "center",
+    position: "relative",
+    overflow: "hidden",
+    backdropFilter: "blur(18px)",
+    WebkitBackdropFilter: "blur(18px)",
+  },
+  pondWater: {
+    position: "absolute",
+    top: 24,
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: 28,
+    opacity: 0.78,
+  },
+  pondLayerTop: {
+    position: "absolute",
+    top: 80,
+    left: "50%",
+    transform: "translateX(-50%)",
+    background: "rgba(255,255,255,0.48)",
+    border: "1px solid rgba(255,255,255,0.64)",
+    borderRadius: 999,
+    padding: "8px 14px",
+    fontSize: 12,
+    fontWeight: 900,
+    color: "#155e75",
+  },
+  pondLayerSand: {
+    position: "absolute",
+    left: 22,
+    bottom: 58,
+    width: "42%",
+    minHeight: 76,
+    borderRadius: 22,
+    display: "grid",
+    placeItems: "center",
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: 900,
+    color: "#78350f",
+    background: "rgba(254,243,199,0.78)",
+    border: "1px solid rgba(255,255,255,0.68)",
+  },
+  pondLayerShell: {
+    position: "absolute",
+    right: 22,
+    bottom: 58,
+    width: "42%",
+    minHeight: 76,
+    borderRadius: 22,
+    display: "grid",
+    placeItems: "center",
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: 900,
+    color: "#164e63",
+    background: "rgba(207,250,254,0.72)",
+    border: "1px solid rgba(255,255,255,0.68)",
+  },
+  pondHint: {
+    position: "absolute",
+    bottom: 18,
+    background: "rgba(255,255,255,0.58)",
+    border: "1px solid rgba(255,255,255,0.68)",
+    borderRadius: 999,
+    padding: "8px 14px",
+    fontSize: 13,
+    fontWeight: 900,
+  },
+  metamorphicWrap: {
+    display: "grid",
+    gridTemplateColumns: "minmax(240px, 360px) 1fr",
+    gap: 18,
+    alignItems: "center",
+  },
+  metamorphicMachine: {
+    minHeight: 230,
+    borderRadius: 34,
+    background: "linear-gradient(180deg, rgba(254,226,226,0.60), rgba(243,232,255,0.58))",
+    border: "1px solid rgba(255,255,255,0.70)",
+    boxShadow: "0 18px 45px rgba(88,28,135,0.14)",
+    position: "relative",
+    display: "grid",
+    placeItems: "center",
+    overflow: "hidden",
+    backdropFilter: "blur(18px)",
+    WebkitBackdropFilter: "blur(18px)",
+  },
+  heatCore: {
+    width: 150,
+    height: 150,
+    borderRadius: "50%",
+    display: "grid",
+    placeItems: "center",
+    textAlign: "center",
+    background: "rgba(127,29,29,0.82)",
+    color: "white",
+    fontWeight: 900,
+    boxShadow: "0 0 38px rgba(239,68,68,0.45)",
+  },
+  pressureTop: {
+    position: "absolute",
+    top: 18,
+    fontWeight: 900,
+    color: "#7f1d1d",
+  },
+  pressureBottom: {
+    position: "absolute",
+    bottom: 18,
+    fontWeight: 900,
+    color: "#581c87",
+  },
+  metamorphicOptions: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 12,
+  },
+  metamorphicChoice: {
+    minHeight: 120,
+    borderRadius: 24,
+    border: "1px solid rgba(255,255,255,0.66)",
+    background: "rgba(255,255,255,0.42)",
+    boxShadow: "0 12px 28px rgba(15,23,42,0.08)",
+    padding: 16,
+    display: "grid",
+    gap: 6,
+    textAlign: "left",
+    cursor: "pointer",
+    color: "#1c1917",
+    fontWeight: 800,
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+  },
   heroTitle: { margin: 0, fontSize: "clamp(28px, 4vw, 46px)", letterSpacing: -1.5 },
   title: { margin: 0, fontSize: 32, letterSpacing: -1 },
   subtitle: { margin: "8px 0 0", color: "#78716c", fontWeight: 700 },
@@ -764,6 +1224,35 @@ const styles = {
   },
   statValue: { fontSize: 22, fontWeight: 900, lineHeight: 1 },
   statLabel: { color: "#78716c", fontSize: 12, fontWeight: 700 },
+  levelPanel: {
+    display: "grid",
+    gridTemplateColumns: "1.5fr 2fr auto",
+    gap: 14,
+    alignItems: "center",
+  },
+  levelText: { margin: "5px 0 0", color: "#78716c", fontSize: 13, fontWeight: 700 },
+  progressTrack: {
+    height: 16,
+    background: "rgba(255,255,255,0.45)",
+    borderRadius: 999,
+    overflow: "hidden",
+    border: "1px solid rgba(255,255,255,0.66)",
+  },
+  progressFill: {
+    height: "100%",
+    background: "linear-gradient(90deg, rgba(34,197,94,0.68), rgba(59,130,246,0.72))",
+    borderRadius: 999,
+    transition: "width 0.35s ease",
+  },
+  levelBonus: {
+    background: "rgba(254,243,199,0.64)",
+    borderRadius: 16,
+    padding: "10px 12px",
+    fontSize: 13,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+    border: "1px solid rgba(255,255,255,0.62)",
+  },
   actionRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" },
   message: {
     background: "rgba(255,255,255,0.42)",
@@ -843,33 +1332,4 @@ const styles = {
     fontWeight: 800,
     border: "1px solid rgba(255,255,255,0.58)",
     backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-  },
-  bookGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 },
-  bookCard: {
-    display: "flex",
-    gap: 12,
-    background: "rgba(255,255,255,0.36)",
-    borderRadius: 20,
-    padding: 12,
-    alignItems: "flex-start",
-    border: "1px solid rgba(255,255,255,0.56)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-  },
-  inventoryRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 10,
-    background: "rgba(255,255,255,0.36)",
-    borderRadius: 20,
-    padding: 12,
-    border: "1px solid rgba(255,255,255,0.56)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-  },
-  smallText: { margin: "4px 0 0", color: "#78716c", fontSize: 13 },
-  fact: { margin: "6px 0 0", color: "#57534e", fontSize: 12, lineHeight: 1.45 },
-  goal: { margin: "14px 0 0", color: "#78716c", fontSize: 13, lineHeight: 1.5 },
-};
+    WebkitBackdropFilter: "blu
