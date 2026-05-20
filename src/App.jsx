@@ -95,6 +95,18 @@ const ROCK_IMAGES = {
 };
 
 const STARTING_LEADERBOARD = [];
+const BROWSER_PLAYER_KEY = "rock-game-browser-player-v1";
+const GAME_STATE_PREFIX = "rock-game-state-v1:";
+
+const DEFAULT_GAME_STATE = {
+  coins: 50,
+  energy: 8,
+  score: 0,
+  level: 1,
+  inventory: {},
+  book: {},
+  verified: {},
+};
 
 const firebaseConfig = {
   apiKey: "AIzaSyBR_uqP_bJdTULAkcyQJF4p3ZIkLzY-30",
@@ -111,6 +123,35 @@ const db = getDatabase(firebaseApp);
 
 function safeKey(name) {
   return name.trim().replace(/[.#$\[\]/]/g, "_").slice(0, 30) || "player";
+}
+
+function loadBrowserPlayerName() {
+  try {
+    return window.localStorage.getItem(BROWSER_PLAYER_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function loadBrowserGameState(playerName) {
+  if (!playerName) return DEFAULT_GAME_STATE;
+  try {
+    const saved = window.localStorage.getItem(`${GAME_STATE_PREFIX}${safeKey(playerName)}`);
+    if (!saved) return DEFAULT_GAME_STATE;
+    return { ...DEFAULT_GAME_STATE, ...JSON.parse(saved) };
+  } catch {
+    return DEFAULT_GAME_STATE;
+  }
+}
+
+function saveBrowserGameState(playerName, state) {
+  if (!playerName) return;
+  try {
+    window.localStorage.setItem(BROWSER_PLAYER_KEY, playerName);
+    window.localStorage.setItem(`${GAME_STATE_PREFIX}${safeKey(playerName)}`, JSON.stringify(state));
+  } catch {
+    // localStorage may be disabled in some browsers.
+  }
 }
 
 function makeUniqueName(baseName, entries) {
@@ -242,18 +283,21 @@ function RockPhoto({ sample, small = false, hidden = false }) {
 }
 
 export default function App() {
-  const [playerName, setPlayerName] = useState("");
+  const initialPlayerName = useMemo(() => loadBrowserPlayerName(), []);
+  const initialGameState = useMemo(() => loadBrowserGameState(initialPlayerName), [initialPlayerName]);
+
+  const [playerName, setPlayerName] = useState(initialPlayerName);
   const [nameInput, setNameInput] = useState("");
-  const [coins, setCoins] = useState(50);
-  const [energy, setEnergy] = useState(8);
-  const [score, setScore] = useState(0);
-  const [level, setLevel] = useState(1);
+  const [coins, setCoins] = useState(initialGameState.coins);
+  const [energy, setEnergy] = useState(initialGameState.energy);
+  const [score, setScore] = useState(initialGameState.score);
+  const [level, setLevel] = useState(initialGameState.level);
   const [message, setMessage] = useState("⛏️ 채석장에 오신 것을 환영합니다. 암석 표본을 모아 도감을 완성하세요!");
   const [current, setCurrent] = useState(null);
   const [currentSolved, setCurrentSolved] = useState(false);
-  const [inventory, setInventory] = useState({});
-  const [book, setBook] = useState({});
-  const [verified, setVerified] = useState({});
+  const [inventory, setInventory] = useState(initialGameState.inventory || {});
+  const [book, setBook] = useState(initialGameState.book || {});
+  const [verified, setVerified] = useState(initialGameState.verified || {});
   const [savedLeaderboard, setSavedLeaderboard] = useState(STARTING_LEADERBOARD);
   const [firebaseStatus, setFirebaseStatus] = useState("Firebase 연결 확인 중...");
   const [selectedType, setSelectedType] = useState("");
@@ -264,6 +308,19 @@ export default function App() {
   const [selectedMetamorphicFeature, setSelectedMetamorphicFeature] = useState("");
 
   const collectedCount = useMemo(() => Object.keys(book).length, [book]);
+
+  useEffect(() => {
+    if (!playerName) return;
+    saveBrowserGameState(playerName, {
+      coins,
+      energy,
+      score,
+      level,
+      inventory,
+      book,
+      verified,
+    });
+  }, [playerName, coins, energy, score, level, inventory, book, verified]);
   useEffect(() => {
     const leaderboardRef = ref(db, "leaderboard");
     const unsubscribe = onValue(
@@ -328,10 +385,11 @@ export default function App() {
     if (!clean) return;
     const uniqueName = makeUniqueName(clean, savedLeaderboard);
     setPlayerName(uniqueName);
+    saveBrowserGameState(uniqueName, DEFAULT_GAME_STATE);
     if (uniqueName === clean) {
-      setMessage(`👋 ${uniqueName}님, 채석장에 오신 것을 환영합니다.`);
+      setMessage(`👋 ${uniqueName}님, 이 브라우저에 계정을 저장했습니다.`);
     } else {
-      setMessage(`👋 ${clean} 닉네임이 이미 있어서 ${uniqueName}으로 등록했습니다.`);
+      setMessage(`👋 ${clean} 닉네임이 이미 있어서 ${uniqueName}으로 등록하고 이 브라우저에 저장했습니다.`);
     }
   }
 
@@ -457,7 +515,7 @@ export default function App() {
       <main style={styles.pageCenter}>
         <Card style={{ width: "min(92vw, 430px)" }}>
           <h1 style={styles.title}>🪨 중2 과학 암석 연구소</h1>
-          <p style={styles.muted}>리더보드에 표시할 이름을 입력하세요.</p>
+          <p style={styles.muted}>처음 한 번만 이름을 입력하면 이 브라우저에서 계속 이어서 플레이합니다.</p>
           <p style={styles.madeBy}>Made by 이나우</p>
           <input
             value={nameInput}
