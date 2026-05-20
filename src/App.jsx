@@ -182,6 +182,7 @@ function Card({ children, style }) {
   );
 }
 
+// ... (Keeping RockPhoto and other upper components exactly the same)
 function RockPhoto({ sample, small = false, hidden = false }) {
   if (hidden) {
     return (
@@ -397,7 +398,6 @@ export default function App() {
     setMessage("에너지를 충전했습니다.");
   }
 
-  
   function renderObservationChoices() {
     if (!current) return null;
 
@@ -427,6 +427,7 @@ export default function App() {
     );
   }
 
+  // Modified start screen conditional layout
   if (!playerName) {
     return (
       <main style={styles.pageCenter}>
@@ -443,6 +444,10 @@ export default function App() {
           <div style={{ marginTop: 12 }}>
             <AppButton onClick={startGame}>게임 시작</AppButton>
           </div>
+          {/* Added the low opacity watermark text right here */}
+          <p style={{ marginTop: 24, marginBottom: 0, textAlign: "center", fontSize: 11, color: "#78716c", opacity: 0.5, fontWeight: 500 }}>
+            Made by 이나우
+          </p>
         </Card>
       </main>
     );
@@ -522,7 +527,6 @@ export default function App() {
               ))}
             </div>
             <p style={styles.leaderboardNote}>Firebase 공유 리더보드와 연결되어 있습니다.</p>
-            
           </Card>
         </div>
 
