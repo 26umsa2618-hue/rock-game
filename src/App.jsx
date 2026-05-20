@@ -86,13 +86,15 @@ const SAMPLES = [
 ];
 
 const ROCK_IMAGES = {
-  granite: "https://upload.wikimedia.org/wikipedia/commons/f/f7/Granite.jpg",
-  basalt: "https://upload.wikimedia.org/wikipedia/commons/a/af/BasaltUSGOV.jpg",
-  sandstone: "https://upload.wikimedia.org/wikipedia/commons/8/87/Jacobsville_Sandstone_sample.jpg",
-  limestone: "https://upload.wikimedia.org/wikipedia/commons/e/ea/Limestone_%28coquina%29_student_sample.JPG",
-  gneiss: "https://upload.wikimedia.org/wikipedia/commons/d/dd/Gneiss.jpg",
-  marble: "https://upload.wikimedia.org/wikipedia/commons/5/52/Carrara_marble.jpg",
+  granite: "https://commons.wikimedia.org/wiki/Special:FilePath/Granite.jpg",
+  basalt: "https://commons.wikimedia.org/wiki/Special:FilePath/BasaltUSGOV.jpg",
+  sandstone: "https://commons.wikimedia.org/wiki/Special:FilePath/Jacobsville%20Sandstone%20sample.jpg",
+  limestone: "https://commons.wikimedia.org/wiki/Special:FilePath/Limestone%20(coquina)%20student%20sample.JPG",
+  gneiss: "https://commons.wikimedia.org/wiki/Special:FilePath/Gneiss.jpg",
+  marble: "https://commons.wikimedia.org/wiki/Special:FilePath/Carrara%20marble.jpg",
 };
+
+const STARTING_LEADERBOARD = [];
 
 const firebaseConfig = {
   apiKey: "AIzaSyBR_uqP_bJdTULAkcyQJF4p3ZIkLzY-30",
@@ -134,54 +136,96 @@ function rankEmoji(rank) {
   return "🪨";
 }
 
-function AppButton({ children, onClick, disabled, selected, kind = "primary" }) {
-  const getStyles = () => {
-    if (disabled) return styles.btnDisabled;
-    if (selected) return styles.btnSelected;
-    if (kind === "secondary") return styles.btnSecondary;
-    if (kind === "danger") return styles.btnDanger;
-    return styles.btnPrimary;
-  };
+function typeEmoji(type) {
+  if (type === "화성암") return "🌋";
+  if (type === "퇴적암") return "🌊";
+  if (type === "변성암") return "🔥";
+  return "🪨";
+}
 
+function AppButton({ children, onClick, disabled, selected, kind = "primary" }) {
   return (
-    <button onClick={onClick} disabled={disabled} style={{ ...styles.btnBase, ...getStyles() }}>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        border: selected ? "2px solid #111827" : "1px solid #d6d3d1",
+        background: selected ? "#111827" : kind === "secondary" ? "#fde68a" : "#ffffff",
+        color: selected ? "white" : "#1f2937",
+        borderRadius: 14,
+        padding: "10px 14px",
+        fontWeight: 700,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.45 : 1,
+        boxShadow: selected ? "0 6px 14px rgba(0,0,0,0.12)" : "none",
+      }}
+    >
       {children}
     </button>
   );
 }
 
 function Card({ children, style }) {
-  return <section style={{ ...styles.card, ...style }}>{children}</section>;
+  return (
+    <section
+      style={{
+        background: "rgba(255,255,255,0.96)",
+        borderRadius: 26,
+        padding: 20,
+        boxShadow: "0 10px 28px rgba(92,64,28,0.10)",
+        border: "1px solid rgba(120,113,108,0.12)",
+        ...style,
+      }}
+    >
+      {children}
+    </section>
+  );
 }
 
-// 🛡️ 깨진 이미지(엑박) 방어 로직이 결합된 고도화된 사진 뷰어
 function RockPhoto({ sample, small = false, hidden = false }) {
-  const [imgError, setImgError] = useState(false);
-
   if (hidden) {
     return (
-      <div style={small ? styles.photoSmallHidden : styles.photoLargeHidden}>
-        <span>?</span>
-      </div>
-    );
-  }
-
-  // 외부 링크 차단 등으로 이미지가 터졌을 경우 안전하게 이모지로 대체
-  if (imgError) {
-    return (
-      <div style={small ? styles.photoSmallFallback : styles.photoLargeFallback}>
-        <span style={{ fontSize: small ? 24 : 52 }}>{sample.icon}</span>
+      <div
+        style={{
+          width: small ? 52 : "100%",
+          height: small ? 52 : 260,
+          borderRadius: small ? 14 : 24,
+          background: "#e7e5e4",
+          display: "grid",
+          placeItems: "center",
+          fontSize: small ? 18 : 42,
+          color: "#78716c",
+          fontWeight: 900,
+        }}
+      >
+        ?
       </div>
     );
   }
 
   return (
-    <div style={small ? styles.photoSmallWrapper : styles.photoLargeWrapper}>
+    <div
+      style={{
+        width: small ? 52 : "100%",
+        height: small ? 52 : 260,
+        borderRadius: small ? 14 : 24,
+        background: "#fff",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: "1px solid #e7e5e4",
+      }}
+    >
       <img
         src={ROCK_IMAGES[sample.id]}
-        alt={sample.name}
-        onError={() => setImgError(true)}
-        style={styles.photoImg}
+        alt={`${sample.name} 암석 사진`}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: small ? "cover" : "contain",
+          display: "block",
+        }}
       />
     </div>
   );
@@ -200,7 +244,7 @@ export default function App() {
   const [inventory, setInventory] = useState({});
   const [book, setBook] = useState({});
   const [verified, setVerified] = useState({});
-  const [savedLeaderboard, setSavedLeaderboard] = useState([]);
+  const [savedLeaderboard, setSavedLeaderboard] = useState(STARTING_LEADERBOARD);
   const [selectedType, setSelectedType] = useState("");
   const [selectedGrain, setSelectedGrain] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
@@ -209,7 +253,6 @@ export default function App() {
   const [selectedMetamorphicFeature, setSelectedMetamorphicFeature] = useState("");
 
   const collectedCount = useMemo(() => Object.keys(book).length, [book]);
-
   useEffect(() => {
     const leaderboardRef = ref(db, "leaderboard");
     const unsubscribe = onValue(leaderboardRef, (snapshot) => {
@@ -222,18 +265,17 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  function updateFirebaseScore(name, targetScore) {
-    if (!name) return;
-    const playerKey = safeKey(name);
-    const oldScore = savedLeaderboard.find((entry) => entry.name === name)?.score || 0;
-    const bestScore = Math.max(oldScore, targetScore);
-    
+  useEffect(() => {
+    if (!playerName) return;
+    const playerKey = safeKey(playerName);
+    const oldScore = savedLeaderboard.find((entry) => entry.name === playerName)?.score || 0;
+    const bestScore = Math.max(oldScore, score);
     set(ref(db, `leaderboard/${playerKey}`), {
-      name: name,
+      name: playerName,
       score: bestScore,
       updatedAt: Date.now(),
     });
-  }
+  }, [playerName, score]);
 
   const leaderboard = useMemo(() => {
     return savedLeaderboard
@@ -244,7 +286,7 @@ export default function App() {
   }, [savedLeaderboard, playerName]);
 
   const myBestScore = useMemo(() => {
-    return Math.max(savedLeaderboard.find((entry) => entry.name === playerName)?.score || 0, score);
+    return savedLeaderboard.find((entry) => entry.name === playerName)?.score || score;
   }, [savedLeaderboard, playerName, score]);
 
   function resetChoices() {
@@ -262,37 +304,36 @@ export default function App() {
     const uniqueName = makeUniqueName(clean, savedLeaderboard);
     setPlayerName(uniqueName);
     if (uniqueName === clean) {
-      setMessage(`👋 ${uniqueName}님, 암석 연구소에 오신 것을 환영합니다!`);
+      setMessage(`👋 ${uniqueName}님, 채석장에 오신 것을 환영합니다.`);
     } else {
-      setMessage(`👋 ${clean} 닉네임이 이미 있어 ${uniqueName}으로 배정되었습니다.`);
+      setMessage(`👋 ${clean} 닉네임이 이미 있어서 ${uniqueName}으로 등록했습니다.`);
     }
-    updateFirebaseScore(uniqueName, score);
+  }
+
+  function changeScore(delta) {
+    setScore((s) => Math.max(0, s + delta));
   }
 
   function penalizeWrong(reason) {
-    const nextScore = Math.max(0, score - 3);
-    setScore(nextScore);
-    setMessage(`❌ ${reason} (-3점)`);
-    updateFirebaseScore(playerName, nextScore);
+    changeScore(-3);
+    setMessage(`❌ ${reason} -3점`);
   }
 
   function skipSample() {
     if (!current) {
-      setMessage("⏭️ 넘길 표본이 없습니다. 먼저 채굴을 진행하세요.");
+      setMessage("⏭️ 넘길 표본이 없습니다. 먼저 채굴해 주세요.");
       return;
     }
-    const nextScore = Math.max(0, score - 10);
-    setScore(nextScore);
-    setMessage(`⏭️ ${current.icon} ${current.name} 표본을 폐기하고 넘겼습니다. (-10점)`);
+    changeScore(-10);
+    setMessage(`⏭️ ${current.icon} ${current.name} 표본을 넘겼습니다. -10점`);
     setCurrent(null);
     setCurrentSolved(false);
     resetChoices();
-    updateFirebaseScore(playerName, nextScore);
   }
 
   function mine() {
     if (energy <= 0) {
-      setMessage("🔋 에너지가 방전되었습니다! 배터리를 충전하세요.");
+      setMessage("에너지가 부족합니다. 에너지 충전을 눌러 주세요.");
       return;
     }
     const sample = randomSample();
@@ -301,83 +342,70 @@ export default function App() {
     setEnergy((e) => e - 1);
     setInventory((prev) => ({ ...prev, [sample.id]: (prev[sample.id] || 0) + 1 }));
     resetChoices();
-    setMessage(`🔎 [새 표본 발굴] ${sample.icon} ${sample.name} 확보 완료! 현미경 관찰 후 검증 시스템을 가동하세요.`);
+    setMessage(`🔎 새 표본 발견: ${sample.icon} ${sample.name}. 관찰 항목을 고르고 검증하세요.`);
   }
 
   function classify() {
-    if (!current) return setMessage("먼저 채굴해서 표본을 분석대에 올려야 합니다.");
-    if (currentSolved) return setMessage(`✅ 해당 표본은 검증 완료되었습니다. 보관함을 통해 판매가 가능합니다.`);
+    if (!current) return setMessage("먼저 채굴해서 표본을 찾아야 합니다.");
+    if (currentSolved) return setMessage(`✅ ${current.icon} ${current.name} 표본은 이미 검증되었습니다. 새 표본을 채굴하거나 판매하세요.`);
 
     if (current.observeMode === "igneous") {
-      if (!selectedGrain || !selectedColor) return setMessage("💡 화성암은 알갱이 크기와 색상을 필수 지정해야 합니다.");
-      if (selectedGrain !== current.grain || selectedColor !== current.color) return penalizeWrong("현미경 분석 실패: 조직 특징이 실물과 일치하지 않습니다.");
+      if (!selectedGrain || !selectedColor) return setMessage("화성암은 알갱이 크기와 색깔을 모두 선택하세요.");
+      if (selectedGrain !== current.grain || selectedColor !== current.color) return penalizeWrong("관찰 결과가 맞지 않습니다. 알갱이 크기와 색깔을 다시 확인하세요.");
     }
 
     if (current.observeMode === "sedimentary") {
-      if (!selectedSedimentFeature || !selectedFeature) return setMessage("💡 퇴적암은 형성 흔적과 구조적 특징을 선택해야 합니다.");
-      if (selectedSedimentFeature !== current.sedimentFeature || selectedFeature !== current.feature) return penalizeWrong("현미경 분석 실패: 퇴적 구조 정보가 일치하지 않습니다.");
+      if (!selectedSedimentFeature || !selectedFeature) return setMessage("퇴적암은 만들어진 흔적과 특징을 모두 선택하세요.");
+      if (selectedSedimentFeature !== current.sedimentFeature || selectedFeature !== current.feature) return penalizeWrong("관찰 결과가 맞지 않습니다. 다시 확인하세요.");
     }
 
     if (current.observeMode === "metamorphic") {
-      if (!selectedMetamorphicFeature || !selectedFeature) return setMessage("💡 변성암은 변성 구조와 정밀 특징을 선택해야 합니다.");
-      if (selectedMetamorphicFeature !== current.metamorphicFeature || selectedFeature !== current.feature) return penalizeWrong("현미경 분석 실패: 열·압력 변성 흔적이 맞지 않습니다.");
+      if (!selectedMetamorphicFeature || !selectedFeature) return setMessage("변성암은 변한 흔적과 특징을 모두 선택하세요.");
+      if (selectedMetamorphicFeature !== current.metamorphicFeature || selectedFeature !== current.feature) return penalizeWrong("관찰 결과가 맞지 않습니다. 다시 확인하세요.");
     }
 
-    if (!selectedType) return setMessage("💡 최종 암석 계열(종류)을 분류 지정해 주세요.");
-    if (selectedType !== current.type) return penalizeWrong("분류 학명 오류: 올바르지 않은 암석 종류입니다.");
+    if (!selectedType) return setMessage("암석 종류를 선택하세요.");
+    if (selectedType !== current.type) return penalizeWrong("암석 종류가 맞지 않습니다.");
 
     const gain = 10 + level * 2;
-    const nextScore = score + gain;
-    
-    setScore(nextScore);
+    changeScore(gain);
     setCoins((c) => c + Math.floor(current.value / 2));
     setBook((b) => ({ ...b, [current.id]: current }));
     setVerified((v) => ({ ...v, [current.id]: true }));
     setCurrentSolved(true);
-    setMessage(`🎉 구조 분석 대성공! [${current.name}] 표본이 국가 도감에 정식 등록되었습니다!`);
-    
-    if (nextScore >= level * 50) {
+    setMessage(`정답! ${current.name} 표본이 검증되었습니다. 이제 판매할 수 있습니다.`);
+    if (score + gain >= level * 50) {
       setLevel((l) => l + 1);
       setEnergy((e) => e + 3);
     }
-
-    updateFirebaseScore(playerName, nextScore);
   }
 
   function sellSample(id) {
     const sample = SAMPLES.find((s) => s.id === id);
     if (!sample || !inventory[id]) return;
-    if (!verified[id]) return setMessage("🔒 미검증 상태의 원석은 유통 및 판매가 불가능합니다.");
-    
-    const nextScore = score + 5;
+    if (!verified[id]) return setMessage("아직 검증되지 않은 표본입니다.");
     setInventory((prev) => ({ ...prev, [id]: prev[id] - 1 }));
     setCoins((c) => c + sample.value);
-    setScore(nextScore);
-    setMessage(`💰 [학술 판매] 과학관에 ${sample.name} 학술 표본을 양도하고 💰 ${sample.value} 코인을 획득했습니다.`);
-
-    if (nextScore >= level * 50) {
-      setLevel((l) => l + 1);
-      setEnergy((e) => e + 3);
-    }
-
-    updateFirebaseScore(playerName, nextScore);
+    changeScore(5);
+    setMessage(`${sample.name} 검증 표본을 과학관에 판매했습니다. +${sample.value} 코인`);
   }
 
   function refillEnergy() {
-    if (coins < 20) return setMessage("코인이 부족하여 에너지 배터리를 구매할 수 없습니다.");
+    if (coins < 20) return setMessage("에너지 충전에는 20코인이 필요합니다.");
     setCoins((c) => c - 20);
     setEnergy((e) => e + 6);
-    setMessage("🔋 전력 그리드 가동: 에너지를 6포인트 재충전했습니다.");
+    setMessage("에너지를 충전했습니다.");
   }
 
+  
   function renderObservationChoices() {
     if (!current) return null;
 
     if (current.observeMode === "igneous") {
       return (
         <>
-          <ChoiceGroup title="🔬 조직 분석: 알갱이 크기" items={["큼", "작음"]} value={selectedGrain} onSelect={setSelectedGrain} />
-          <ChoiceGroup title="🎨 분광 분석: 암석의 색조" items={["밝은색 계열", "어두운색 계열"]} value={selectedColor} onSelect={setSelectedColor} />
+          <ChoiceGroup title="🔬 1단계: 알갱이 크기" items={["큼", "작음"]} value={selectedGrain} onSelect={setSelectedGrain} />
+          <ChoiceGroup title="🎨 2단계: 색깔" items={["밝은색 계열", "어두운색 계열"]} value={selectedColor} onSelect={setSelectedColor} />
         </>
       );
     }
@@ -385,189 +413,132 @@ export default function App() {
     if (current.observeMode === "sedimentary") {
       return (
         <>
-          <ChoiceGroup title="🌊 구조 분석: 형성 흔적" items={["퇴적물이 쌓여 굳어진 모습", "화석이나 생물 흔적이 보일 수 있음"]} value={selectedSedimentFeature} onSelect={setSelectedSedimentFeature} />
-          <ChoiceGroup title="🧩 반응 테스트: 물리적 특징" items={["층리가 나타날 수 있음", "묽은 염산에 기포가 생김"]} value={selectedFeature} onSelect={setSelectedFeature} />
+          <ChoiceGroup title="🌊 1단계: 만들어진 흔적" items={["퇴적물이 쌓여 굳어진 모습", "화석이나 생물 흔적이 보일 수 있음"]} value={selectedSedimentFeature} onSelect={setSelectedSedimentFeature} />
+          <ChoiceGroup title="🧩 2단계: 퇴적암 특징" items={["층리가 나타날 수 있음", "묽은 염산에 기포가 생김"]} value={selectedFeature} onSelect={setSelectedFeature} />
         </>
       );
     }
 
     return (
       <>
-        <ChoiceGroup title="🔥 결정 분석: 변성 흔적" items={["줄무늬나 엽리가 보임", "기존 암석이 변한 모습"]} value={selectedMetamorphicFeature} onSelect={setSelectedMetamorphicFeature} />
-        <ChoiceGroup title="🧩 스트레스 테스트: 변성 특징" items={["열과 압력을 받은 흔적이 있음", "석회암이 변성되어 만들어짐"]} value={selectedFeature} onSelect={setSelectedFeature} />
+        <ChoiceGroup title="🔥 1단계: 변한 흔적" items={["줄무늬나 엽리가 보임", "기존 암석이 변한 모습"]} value={selectedMetamorphicFeature} onSelect={setSelectedMetamorphicFeature} />
+        <ChoiceGroup title="🧩 2단계: 변성암 특징" items={["열과 압력을 받은 흔적이 있음", "석회암이 변성되어 만들어짐"]} value={selectedFeature} onSelect={setSelectedFeature} />
       </>
     );
   }
 
-  // 🚪 로그인 게이트웨이 화면 (made by 이나우 문구 추가)
   if (!playerName) {
     return (
       <main style={styles.pageCenter}>
-        <div style={styles.loginCard}>
-          <div style={styles.loginHeader}>
-            <span style={{ fontSize: 48 }}>🔬</span>
-            <h1 style={styles.loginTitle}>지질학 연구소</h1>
-            <p style={styles.loginSubtitle}>중2 과학 암석 분류 아카이브 가동</p>
+        <Card style={{ width: "min(92vw, 430px)" }}>
+          <h1 style={styles.title}>🪨 중2 과학 암석 연구소</h1>
+          <p style={styles.muted}>리더보드에 표시할 이름을 입력하세요.</p>
+          <input
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && startGame()}
+            placeholder="이름 입력"
+            style={styles.input}
+          />
+          <div style={{ marginTop: 12 }}>
+            <AppButton onClick={startGame}>게임 시작</AppButton>
           </div>
-          <div style={{ width: "100%" }}>
-            <label style={styles.fieldLabel}>연구원 코드 (닉네임)</label>
-            <input
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && startGame()}
-              placeholder="호칭 또는 이름 입력"
-              style={styles.input}
-            />
-          </div>
-          <button onClick={startGame} style={styles.loginButton}>
-            연구실 입장하기 🚀
-          </button>
-          
-          {/* 하단 투명 크레딧 문구 추가 */}
-          <div style={styles.creditText}>made by 이나우</div>
-        </div>
+        </Card>
       </main>
     );
   }
 
-  // 🛰️ 메인 대시보드 화면
   return (
     <main style={styles.page}>
       <div style={styles.shell}>
-        
-        {/* 상단 통합 스태터스 바 */}
         <header style={styles.hero}>
-          <div style={styles.heroTextSection}>
-            <h1 style={styles.heroTitle}>🔬 암석 정밀 연구소</h1>
-            <p style={styles.subtitle}>관찰 · 분류 · 데이터 검증 자동화 시스템</p>
+          <div>
+            <h1 style={styles.heroTitle}>🪨 중2 과학 암석 연구소</h1>
+            <p style={styles.subtitle}>🧪 관찰하고 · 🧭 분류해서 · ✅ 검증하고 · 💰 판매하세요</p>
           </div>
-          <div style={styles.statsGrid}>
-            <Stat label="연구 자금" value={`${coins} 🪙`} icon="💰" color="#d97706" />
-            <Stat label="작업 에너지" value={`${energy} / 8`} icon="⚡" color="#059669" />
-            <Stat label="누적 점수" value={`${score} p`} icon="⭐" color="#4f46e5" />
-            <Stat label="연구원 레벨" value={`Lv.${level}`} icon="🏆" color="#7c3aed" />
+          <div style={styles.stats}>
+            <Stat label="코인" value={coins} icon="💰" />
+            <Stat label="에너지" value={energy} icon="⛏️" />
+            <Stat label="점수" value={score} icon="⭐" />
+            <Stat label="레벨" value={level} icon="🏆" />
           </div>
         </header>
 
-        {/* 퀘스트 가이드 라인 */}
         <div style={styles.gameGuide}>
-          <div style={styles.guideStep}><span style={styles.stepBadge}>1</span> <b>시편 발굴</b><span>암석 샘플 무작위 추출</span></div>
-          <div style={styles.guideStep}><span style={styles.stepBadge}>2</span> <b>정밀 관찰</b><span>현미경 미세 구조 판단</span></div>
-          <div style={styles.guideStep}><span style={styles.stepBadge}>3</span> <b>계통 분류</b><span>3대 암석군 귀속 설정</span></div>
-          <div style={styles.guideStep}><span style={styles.stepBadge}>4</span> <b>시스템 검증</b><span>국제 표준 데이터 대조</span></div>
-          <div style={styles.guideStep}><span style={styles.stepBadge}>5</span> <b>학술 공헌</b><span>박물관 양도 및 예산 확보</span></div>
+          <div style={styles.guideStep}>⛏️ <b>1. 채굴</b><span>암석 표본 찾기</span></div>
+          <div style={styles.guideStep}>🔎 <b>2. 관찰</b><span>특징 고르기</span></div>
+          <div style={styles.guideStep}>🧭 <b>3. 분류</b><span>암석 종류 맞히기</span></div>
+          <div style={styles.guideStep}>✅ <b>4. 검증</b><span>도감 등록</span></div>
+          <div style={styles.guideStep}>💰 <b>5. 판매</b><span>점수 올리기</span></div>
         </div>
 
-        {/* 중앙 관제 센터 콘솔 */}
-        <Card style={styles.consoleCard}>
+        <Card>
           <div style={styles.actionRow}>
-            <div style={styles.messageBox}>
-              <span style={{ marginRight: 8, flexShrink: 0 }}>🛰️ LOG:</span>
-              <span style={styles.messageText}>{message}</span>
-            </div>
+            <div style={styles.message}>{message}</div>
             <div style={styles.buttonRow}>
-              <AppButton onClick={mine}>⛏️ 신규 표본 채굴</AppButton>
-              <AppButton onClick={classify} kind="secondary">🧪 시스템 데이터 검증</AppButton>
-              <AppButton onClick={refillEnergy}>🔋 에너지 셀 구매 (-20🪙)</AppButton>
-              <AppButton onClick={skipSample} kind="danger">⏭️ 표본 폐기 (-10p)</AppButton>
+              <AppButton onClick={mine}>⛏️ 채굴하기</AppButton>
+              <AppButton onClick={classify} kind="secondary">🧪 검증하기</AppButton>
+              <AppButton onClick={refillEnergy}>에너지 충전</AppButton>
+              <AppButton onClick={skipSample}>⏭️ 넘기기 -10점</AppButton>
             </div>
           </div>
         </Card>
 
-        {/* 메인 분석 스페이스 격자 */}
         <div style={styles.mainGrid}>
-          {/* 왼쪽 암석 감정 섹션 */}
-          <Card style={styles.observeContainer}>
-            <div style={styles.panelHeader}>
-              <div style={styles.panelTitleDot}></div>
-              <h2 style={styles.sectionTitle}>🔎 실시간 시편 미세 구조 분석대</h2>
-            </div>
-            
+          <Card style={{ gridColumn: "span 2" }}>
+            <h2 style={styles.sectionTitle}>🔎 암석 감정소 · 현재 표본 관찰</h2>
             {current ? (
               <div style={styles.observeGrid}>
                 <div style={styles.samplePanel}>
                   <RockPhoto sample={current} />
-                  <div style={styles.rockIdentityBadge}>
-                    <span style={{ fontSize: 24, flexShrink: 0 }}>{current.icon}</span>
-                    <h3 style={styles.rockName}>{current.name}</h3>
-                  </div>
-                  <div style={styles.clueContainer}>
-                    <strong>📝 필드 감정 단서:</strong>
-                    <p style={styles.clue}>{current.clue}</p>
-                  </div>
-                  <div style={styles.priceTag}>
-                    학술 표준 평가 가치: <span>🪙 {current.value}</span>
-                  </div>
+                  <h3 style={styles.rockName}>{current.icon} {current.name}</h3>
+                  <p style={styles.clue}>📝 겉모습 단서: {current.clue}</p>
                 </div>
-                
                 <div style={styles.choicePanel}>
-                  <div style={styles.choicePanelTitle}>📊 성분 변수 테이블 세팅</div>
                   {renderObservationChoices()}
-                  <div style={{ borderTop: "2px dashed #e5e7eb", marginTop: 20, paddingTop: 16 }}>
-                    <ChoiceGroup title="🧭 계통학적 최종 분류군 설정" items={["화성암", "퇴적암", "변성암"]} value={selectedType} onSelect={setSelectedType} />
-                  </div>
+                  <ChoiceGroup title="🧭 마지막 단계: 암석 종류" items={["화성암", "퇴적암", "변성암"]} value={selectedType} onSelect={setSelectedType} />
                 </div>
               </div>
             ) : (
-              <div style={styles.empty}>
-                <span style={{ fontSize: 48, display: "block", marginBottom: 12 }}>📡</span>
-                정밀 검사 장비 대기 중. 상단의 <b>[신규 표본 채굴]</b> 엔진을 기동하세요.
-              </div>
+              <div style={styles.empty}>채굴하기를 눌러 첫 암석 표본을 찾아보세요.</div>
             )}
           </Card>
 
-          {/* 오른쪽 리더보드 랭킹 섹션 */}
-          <Card style={styles.sidebarCard}>
-            <div style={styles.panelHeader}>
-              <div style={{ ...styles.panelTitleDot, backgroundColor: "#7c3aed" }}></div>
-              <h2 style={styles.sectionTitle}>🏅 실시간 싱크 리더보드</h2>
-            </div>
+          <Card>
+            <h2 style={styles.sectionTitle}>🏅 탐험가 랭킹 · 리더보드</h2>
             <div style={styles.bestScoreBox}>
-              <span>🏆 개인 최고 성적 기록</span>
-              <b>{myBestScore} p</b>
+              <span>🏆 내 최고점</span>
+              <b>⭐ {myBestScore}점</b>
             </div>
-            <div style={styles.rankList}>
+            <div style={{ display: "grid", gap: 10 }}>
               {leaderboard.length === 0 && (
-                <div style={styles.emptyRank}>🪨 원격 서버 데이터 동기화 중...</div>
+                <div style={styles.emptyRank}>🪨 아직 등록된 점수가 없습니다.</div>
               )}
               {leaderboard.map((entry) => (
-                <div key={entry.name} style={{ ...styles.rankRow, ...(entry.me ? styles.rankRowMe : {}) }}>
-                  <div style={styles.rankUserGroup}>
-                    <span style={styles.rankIconBox}>{rankEmoji(entry.rank)}</span>
-                    <span style={{ fontWeight: entry.me ? 900 : 500 }}>
-                      {entry.rank}위 · {entry.name} {entry.me ? " 👤(나)" : ""}
-                    </span>
-                  </div>
-                  <b style={styles.rankScoreText}>{entry.score} p</b>
+                <div key={entry.name} style={{ ...styles.rankRow, background: entry.me ? "#fef3c7" : "#f5f5f4" }}>
+                  <span>{rankEmoji(entry.rank)} {entry.rank}위 · {entry.name}{entry.me ? " 👤" : ""}</span>
+                  <b>⭐ {entry.score}점</b>
                 </div>
               ))}
             </div>
-            <p style={styles.leaderboardNote}>※ 본 연동 스코어보드는 실시간 Firebase 클라우드 인프라와 양방향 통신 중입니다.</p>
+            <p style={styles.leaderboardNote}>Firebase 공유 리더보드와 연결되어 있습니다.</p>
+            
           </Card>
         </div>
 
-        {/* 하단 인벤토리 및 도감 격자 */}
         <div style={styles.bottomGrid}>
-          {/* 도감 섹션 */}
           <Card>
-            <div style={styles.panelHeader}>
-              <div style={{ ...styles.panelTitleDot, backgroundColor: "#2563eb" }}></div>
-              <h2 style={styles.sectionTitle}>📘 글로벌 지질학 도감 고도화 ({collectedCount} / {SAMPLES.length})</h2>
-            </div>
+            <h2 style={styles.sectionTitle}>📘 수집 도감 · 암석 도감 {collectedCount}/{SAMPLES.length}</h2>
             <div style={styles.bookGrid}>
               {SAMPLES.map((sample) => {
                 const found = Boolean(book[sample.id]);
                 return (
-                  <div key={sample.id} style={found ? styles.bookCardFound : styles.bookCardMissing}>
+                  <div key={sample.id} style={styles.bookCard}>
                     <RockPhoto sample={sample} small hidden={!found} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={styles.bookCardTitle}>
-                        {found ? `${sample.icon} ${sample.name}` : "정밀 분석 미수행 표본"}
-                      </div>
-                      <p style={styles.smallText}>
-                        {found ? `${sample.type} ➔ ${sample.subtype}` : "도감 메타데이터 락 상태"}
-                      </p>
-                      {found && <p style={styles.factText}>{sample.fact}</p>}
+                    <div>
+                      <b>{found ? `${sample.icon} ${sample.name}` : "❔ 미발견 표본"}</b>
+                      <p style={styles.smallText}>{found ? `${sample.type} · ${sample.subtype}` : "관찰하고 분류하면 열립니다."}</p>
+                      {found && <p style={styles.fact}>{sample.fact}</p>}
                     </div>
                   </div>
                 );
@@ -575,41 +546,22 @@ export default function App() {
             </div>
           </Card>
 
-          {/* 인벤토리 섹션 (글자 찌그러짐 현상 해소 및 둥근 카드 정렬 최적화) */}
-          <Card style={styles.sidebarCard}>
-            <div style={styles.panelHeader}>
-              <div style={{ ...styles.panelTitleDot, backgroundColor: "#db2777" }}></div>
-              <h2 style={styles.sectionTitle}>🎒 임시 물질 보관함 (표본고)</h2>
-            </div>
-            <div style={styles.inventoryList}>
-              {SAMPLES.map((sample) => {
-                const count = inventory[sample.id] || 0;
-                const isVerified = verified[sample.id];
-                return (
-                  <div key={sample.id} style={styles.inventoryRow}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
-                      <RockPhoto sample={sample} small />
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={styles.inventoryRockTitle}>{sample.icon} {sample.name}</div>
-                        <div style={styles.inventoryCountText}>보유 수량: <span>{count}개</span></div>
-                      </div>
-                    </div>
-                    <div style={{ flexShrink: 0 }}>
-                      <AppButton
-                        disabled={!count || !isVerified}
-                        onClick={() => sellSample(sample.id)}
-                        kind={isVerified ? "secondary" : "primary"}
-                      >
-                        {isVerified ? `💰 학술 처분 (+${sample.value})` : "🔒 잠금(검증전)"}
-                      </AppButton>
-                    </div>
+          <Card>
+            <h2 style={styles.sectionTitle}>🎒 내 가방 · 표본 보관함</h2>
+            <div style={{ display: "grid", gap: 10 }}>
+              {SAMPLES.map((sample) => (
+                <div key={sample.id} style={styles.inventoryRow}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <RockPhoto sample={sample} small />
+                    <span><b>{sample.icon} {sample.name}</b> × {inventory[sample.id] || 0}</span>
                   </div>
-                );
-              })}
+                  <AppButton disabled={!inventory[sample.id] || !verified[sample.id]} onClick={() => sellSample(sample.id)} kind="secondary">
+                    {verified[sample.id] ? "💰 판매" : "🔒 검증 필요"}
+                  </AppButton>
+                </div>
+              ))}
             </div>
-            <div style={styles.curriculumGoal}>
-              🎓 <strong>중2 교육과정 성취 기준:</strong> 암석의 성인(화성암, 퇴적암, 변성암)에 따른 핵심 분류 기준인 조직 입자 크기, 색상 광물 배색, 층리 및 화석 존재 유무, 엽리 줄무늬 구조, 염산 기포 반응성 요소를 복합 대조하여 암석을 명확하게 동정할 수 있어야 합니다.
-            </div>
+            <p style={styles.goal}>학습 목표: 화성암은 알갱이 크기와 색깔, 퇴적암은 층리·화석·염산 반응, 변성암은 엽리·줄무늬·변성 작용의 흔적을 바탕으로 분류하기</p>
           </Card>
         </div>
       </div>
@@ -632,15 +584,13 @@ function ChoiceGroup({ title, items, value, onSelect }) {
   );
 }
 
-function Stat({ icon, label, value, color }) {
+function Stat({ icon, label, value }) {
   return (
     <div style={styles.statBox}>
-      <div style={{ ...styles.statIconCircle, backgroundColor: `${color}15`, color: color }}>
-        {icon}
-      </div>
+      <span style={{ fontSize: 22 }}>{icon}</span>
       <div>
+        <div style={styles.statValue}>{value}</div>
         <div style={styles.statLabel}>{label}</div>
-        <div style={{ ...styles.statValue, color: "#111827" }}>{value}</div>
       </div>
     </div>
   );
@@ -649,197 +599,99 @@ function Stat({ icon, label, value, color }) {
 const styles = {
   page: {
     minHeight: "100vh",
-    backgroundColor: "#f8fafc",
-    backgroundImage: "radial-gradient(#cbd5e1 1px, transparent 1px)",
-    backgroundSize: "24px 24px",
-    color: "#0f172a",
-    padding: "clamp(12px, 3vw, 24px)",
-    fontFamily: "'Pretendard', system-ui, -apple-system, sans-serif",
-    WebkitFontSmoothing: "antialiased",
+    background: "linear-gradient(180deg, #fff7d6 0%, #fffbeb 45%, #f5f5f4 100%)",
+    color: "#1c1917",
+    padding: 20,
+    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   pageCenter: {
     minHeight: "100vh",
-    backgroundColor: "#0f172a",
-    backgroundImage: "linear-gradient(to bottom right, #0f172a, #1e293b)",
+    background: "linear-gradient(180deg, #fff7d6 0%, #fffbeb 100%)",
     display: "grid",
     placeItems: "center",
-    padding: 20,
-    fontFamily: "'Pretendard', system-ui, -apple-system, sans-serif",
+    color: "#1c1917",
+    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
-  shell: { maxWidth: 1240, margin: "0 auto", display: "grid", gap: 20 },
-  
-  loginCard: {
-    background: "rgba(30, 41, 59, 0.7)",
-    backdropFilter: "blur(16px)",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    borderRadius: 32,
-    padding: "40px 32px 24px",
-    width: "100%",
-    maxWidth: 440,
-    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+  shell: { maxWidth: 1180, margin: "0 auto", display: "grid", gap: 18 },
+  hero: {
+    background: "#ffffff",
+    borderRadius: 28,
+    padding: 26,
     display: "flex",
-    flexDirection: "column",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: 24,
-    position: "relative",
+    gap: 20,
+    boxShadow: "0 12px 32px rgba(92,64,28,0.10)",
   },
-  loginHeader: { textAlign: "center" },
-  loginTitle: { margin: "12px 0 4px", fontSize: 32, fontWeight: 800, color: "#ffffff", letterSpacing: "-1px" },
-  loginSubtitle: { margin: 0, color: "#94a3b8", fontSize: 14, fontWeight: 500 },
-  fieldLabel: { display: "block", color: "#cbd5e1", fontSize: 13, fontWeight: 600, marginBottom: 8, paddingLeft: 4 },
+  gameGuide: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: 10,
+  },
+  guideStep: {
+    background: "#ffffff",
+    borderRadius: 18,
+    padding: "12px 14px",
+    display: "grid",
+    gap: 4,
+    boxShadow: "0 8px 20px rgba(92,64,28,0.08)",
+    border: "1px solid rgba(120,113,108,0.12)",
+  },
+  heroTitle: { margin: 0, fontSize: "clamp(28px, 4vw, 46px)", letterSpacing: -1.5 },
+  title: { margin: 0, fontSize: 32, letterSpacing: -1 },
+  subtitle: { margin: "8px 0 0", color: "#78716c", fontWeight: 700 },
+  muted: { color: "#78716c" },
   input: {
     width: "100%",
     boxSizing: "border-box",
     borderRadius: 16,
-    border: "2px solid #334155",
-    backgroundColor: "#0f172a",
+    border: "1px solid #d6d3d1",
+    padding: "13px 14px",
+    fontSize: 16,
+    marginTop: 10,
+  },
+  stats: { display: "grid", gridTemplateColumns: "repeat(2, minmax(120px, 1fr))", gap: 10 },
+  statBox: { background: "#fef3c7", borderRadius: 18, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 },
+  statValue: { fontSize: 22, fontWeight: 900, lineHeight: 1 },
+  statLabel: { color: "#78716c", fontSize: 12, fontWeight: 700 },
+  actionRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" },
+  message: { background: "#f5f5f4", borderRadius: 18, padding: "13px 16px", fontWeight: 700, flex: 1, minWidth: 260 },
+  buttonRow: { display: "flex", gap: 8, flexWrap: "wrap" },
+  mainGrid: { display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18 },
+  bottomGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 },
+  observeGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 },
+  samplePanel: { background: "#fff7ed", borderRadius: 24, padding: 18, textAlign: "center" },
+  choicePanel: { background: "#fafaf9", borderRadius: 24, padding: 18 },
+  sectionTitle: { margin: "0 0 14px", fontSize: 24 },
+  rockName: { margin: "14px 0 6px", fontSize: 30 },
+  clue: { margin: 0, color: "#57534e", lineHeight: 1.6 },
+  empty: { background: "#f5f5f4", borderRadius: 22, padding: 40, textAlign: "center", color: "#78716c", fontWeight: 700 },
+  choiceTitle: { margin: "0 0 8px", fontWeight: 900, color: "#44403c" },
+  choiceGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 },
+  rankRow: { borderRadius: 16, padding: "12px 14px", display: "flex", justifyContent: "space-between", gap: 8 },
+  bestScoreBox: {
+    background: "#ecfccb",
+    borderRadius: 18,
     padding: "14px 16px",
-    fontSize: 16,
-    color: "#ffffff",
-    outline: "none",
-    transition: "all 0.2s ease",
-  },
-  loginButton: {
-    width: "100%",
-    border: "none",
-    borderRadius: 16,
-    backgroundColor: "#3b82f6",
-    color: "#ffffff",
-    padding: "16px",
-    fontSize: 16,
-    fontWeight: 700,
-    cursor: "pointer",
-    boxShadow: "0 10px 15px -3px rgba(59, 130, 246, 0.4)",
-  },
-  creditText: {
-    marginTop: 8,
-    color: "#ffffff",
-    opacity: 0.35,
-    fontSize: 12,
-    fontWeight: 500,
-    letterSpacing: "0.5px"
-  },
-
-  hero: {
-    background: "#ffffff",
-    borderRadius: 24,
-    padding: 24,
+    marginBottom: 12,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 24,
-    flexWrap: "wrap",
-    boxShadow: "0 4px 20px -2px rgba(15, 23, 42, 0.05)",
-    border: "1px solid #e2e8f0",
+    fontWeight: 900,
   },
-  heroTextSection: { minWidth: 280 },
-  heroTitle: { margin: 0, fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 900, color: "#0f172a", letterSpacing: "-1.5px" },
-  subtitle: { margin: "6px 0 0", color: "#64748b", fontWeight: 600, fontSize: 14 },
-  
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, flex: "1 1 auto", maxWidth: 600 },
-  statBox: { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 18, padding: "12px 16px", display: "flex", alignItems: "center", gap: 14 },
-  statIconCircle: { width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center", fontSize: 20, fontWeight: "bold", flexShrink: 0 },
-  statValue: { fontSize: 18, fontWeight: 800, lineHeight: 1.2 },
-  statLabel: { color: "#64748b", fontSize: 11, fontWeight: 700, marginBottom: 2 },
-
-  gameGuide: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 },
-  guideStep: {
-    background: "#ffffff",
+  leaderboardNote: { margin: "12px 0 0", color: "#78716c", fontSize: 12, lineHeight: 1.4 },
+  emptyRank: {
+    background: "#f5f5f4",
     borderRadius: 16,
     padding: "14px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.03)",
-    border: "1px solid #e2e8f0",
-    fontSize: 13,
+    color: "#78716c",
+    textAlign: "center",
+    fontWeight: 700,
   },
-  stepBadge: { width: 20, height: 20, borderRadius: "50%", backgroundColor: "#0f172a", color: "#ffffff", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 800 },
-
-  consoleCard: { background: "#0f172a", border: "none", color: "#ffffff", borderRadius: 24, padding: 20, boxShadow: "0 20px 25px -5px rgba(15, 23, 42, 0.2)" },
-  actionRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" },
-  messageBox: { background: "#1e293b", borderRadius: 14, padding: "14px 18px", flex: 1, minWidth: 280, display: "flex", alignItems: "flex-start", borderLeft: "4px solid #3b82f6" },
-  messageText: { fontWeight: 600, color: "#e2e8f0", fontSize: 14, lineHeight: 1.5 },
-  buttonRow: { display: "flex", gap: 8, flexWrap: "wrap" },
-
-  card: { background: "#ffffff", borderRadius: 24, padding: 24, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.04)", border: "1px solid #e2e8f0" },
-  panelHeader: { display: "flex", alignItems: "center", gap: 10, marginBottom: 18 },
-  panelTitleDot: { width: 8, height: 16, borderRadius: 4, backgroundColor: "#3b82f6" },
-  sectionTitle: { margin: 0, fontSize: 18, fontWeight: 800, color: "#0f172a" },
-
-  mainGrid: { display: "grid", gridTemplateColumns: "2.3fr 1fr", gap: 20, alignItems: "start" },
-  observeContainer: { minWidth: 0 },
-  sidebarCard: { backgroundColor: "#ffffff" },
-  bottomGrid: { display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, alignItems: "start" },
-  observeGrid: { display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 24 },
-
-  samplePanel: { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 20, padding: 20, textAlign: "center", display: "flex", flexDirection: "column", gap: 12 },
-  rockIdentityBadge: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10, alignSelf: "center", background: "#ffffff", border: "1px solid #e2e8f0", padding: "6px 20px", borderRadius: 30, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" },
-  rockName: { margin: 0, fontSize: 22, fontWeight: 900, color: "#0f172a" },
-  clueContainer: { background: "#ffffff", border: "1px solid #e2e8f0", padding: 14, borderRadius: 14, textAlign: "left" },
-  clue: { margin: "4px 0 0", color: "#475569", fontSize: 14, lineHeight: 1.5, fontWeight: 500 },
-  priceTag: { background: "#fef3c7", color: "#92400e", fontWeight: 800, fontSize: 13, padding: "8px 12px", borderRadius: 10, alignSelf: "center" },
-  
-  choicePanel: { background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 20, padding: 20, boxShadow: "inset 0 2px 4px 0 rgba(0, 0, 0, 0.02)" },
-  choicePanelTitle: { fontSize: 14, fontWeight: 800, color: "#64748b", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.5px" },
-  empty: { background: "#f1f5f9", border: "2px dashed #cbd5e1", borderRadius: 20, padding: "60px 20px", textAlign: "center", color: "#64748b", fontWeight: 600, fontSize: 14 },
-  choiceTitle: { margin: "0 0 8px", fontWeight: 700, color: "#334155", fontSize: 14 },
-  choiceGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 },
-
-  // 이미지 컨테이너 크기 방어 및 플랫 폴백 레이아웃 설정
-  photoLargeWrapper: { width: "100%", height: 240, borderRadius: 16, backgroundColor: "#ffffff", border: "1px solid #e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" },
-  photoSmallWrapper: { width: 54, height: 54, borderRadius: 12, backgroundColor: "#ffffff", border: "1px solid #e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  photoLargeHidden: { width: "100%", height: 240, borderRadius: 16, background: "linear-gradient(135deg, #e2e8f0, #cbd5e1)", display: "grid", placeItems: "center", fontSize: 48, color: "#64748b", fontWeight: 900 },
-  photoSmallHidden: { width: 54, height: 54, borderRadius: 12, background: "#e2e8f0", display: "grid", placeItems: "center", fontSize: 18, color: "#64748b", fontWeight: 900, flexShrink: 0 },
-  
-  photoLargeFallback: { width: "100%", height: 240, borderRadius: 16, backgroundColor: "#f1f5f9", border: "1px solid #cbd5e1", display: "grid", placeItems: "center" },
-  photoSmallFallback: { width: 54, height: 54, borderRadius: 12, backgroundColor: "#f1f5f9", border: "1px solid #cbd5e1", display: "grid", placeItems: "center", flexShrink: 0 },
-  photoImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
-
-  bestScoreBox: { background: "linear-gradient(135deg, #ecfccb, #d9f99d)", border: "1px solid #a3e635", color: "#3f6212", borderRadius: 16, padding: "14px 18px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 800, fontSize: 15 },
-  rankList: { display: "grid", gap: 8 },
-  rankRow: { borderRadius: 14, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: 13 },
-  rankRowMe: { background: "#fef9c3", borderColor: "#fde047", boxShadow: "0 4px 6px -1px rgba(234, 179, 8, 0.1)" },
-  rankUserGroup: { display: "flex", alignItems: "center", gap: 10 },
-  rankIconBox: { width: 24, textAlign: "center", flexShrink: 0 },
-  rankScoreText: { color: "#334155", fontSize: 14 },
-  leaderboardNote: { margin: "14px 0 0", color: "#94a3b8", fontSize: 11, lineHeight: 1.4, textAlign: "justify" },
-  emptyRank: { background: "#f1f5f9", borderRadius: 14, padding: 14, color: "#64748b", textAlign: "center", fontWeight: 600, fontSize: 13 },
-
-  bookGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 },
-  bookCardFound: { display: "flex", gap: 14, background: "#ffffff", border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)", borderRadius: 18, padding: 14, alignItems: "flex-start" },
-  bookCardMissing: { display: "flex", gap: 14, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 18, padding: 14, alignItems: "flex-start", opacity: 0.7 },
-  bookCardTitle: { fontWeight: 800, fontSize: 15, color: "#0f172a" },
-  factText: { margin: "8px 0 0", color: "#475569", fontSize: 12, lineHeight: 1.5, background: "#f1f5f9", padding: "8px 10px", borderRadius: 8 },
-
-  // 인벤토리(보관함) 찌그러짐 현상 완화 스타일링 변경
-  inventoryList: { display: "flex", flexDirection: "column", gap: 10 },
-  inventoryRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 20, padding: "12px 16px" },
-  inventoryRockTitle: { fontWeight: 700, fontSize: 15, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-  inventoryCountText: { fontSize: 12, color: "#64748b", marginTop: 2, "& span": { fontWeight: 700, color: "#1e293b" } },
-  
-  curriculumGoal: { margin: "18px 0 0", color: "#64748b", fontSize: 12, lineHeight: 1.6, background: "#f8fafc", border: "1px solid #e2e8f0", padding: 14, borderRadius: 14, textAlign: "justify" },
-  smallText: { margin: "2px 0 0", color: "#64748b", fontSize: 12, fontWeight: 500 },
-
-  btnBase: {
-    padding: "10px 18px",
-    fontSize: "14px",
-    fontWeight: "700",
-    borderRadius: "12px",
-    cursor: "pointer",
-    border: "none",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "6px",
-    transition: "all 0.15s ease",
-    boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.05)",
-    userSelect: "none",
-    whiteSpace: "nowrap",
-  },
-  btnPrimary: { backgroundColor: "#ffffff", color: "#334155", border: "1px solid #cbd5e1" },
-  btnSelected: { backgroundColor: "#0f172a", color: "#ffffff", boxShadow: "0 4px 12px rgba(15, 23, 42, 0.25)" },
-  btnSecondary: { backgroundColor: "#3b82f6", color: "#ffffff", boxShadow: "0 4px 12px rgba(59, 130, 246, 0.2)" },
-  btnDanger: { backgroundColor: "#ef4444", color: "#ffffff" },
-  btnDisabled: { backgroundColor: "#e2e8f0", color: "#94a3b8", cursor: "not-allowed", boxShadow: "none" },
+  bookGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 },
+  bookCard: { display: "flex", gap: 12, background: "#f5f5f4", borderRadius: 18, padding: 12, alignItems: "flex-start" },
+  inventoryRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: "#f5f5f4", borderRadius: 18, padding: 12 },
+  smallText: { margin: "4px 0 0", color: "#78716c", fontSize: 13 },
+  fact: { margin: "6px 0 0", color: "#57534e", fontSize: 12, lineHeight: 1.45 },
+  goal: { margin: "14px 0 0", color: "#78716c", fontSize: 13, lineHeight: 1.5 },
 };
