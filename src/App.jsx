@@ -134,7 +134,6 @@ function rankEmoji(rank) {
   return "🪨";
 }
 
-// 💎 스타일 컴포넌트 역할을 하는 공통 버튼 (애니메이션 및 미세한 스케일 피드백 포함)
 function AppButton({ children, onClick, disabled, selected, kind = "primary" }) {
   const getStyles = () => {
     if (disabled) return styles.btnDisabled;
@@ -155,11 +154,23 @@ function Card({ children, style }) {
   return <section style={{ ...styles.card, ...style }}>{children}</section>;
 }
 
+// 🛡️ 깨진 이미지(엑박) 방어 로직이 결합된 고도화된 사진 뷰어
 function RockPhoto({ sample, small = false, hidden = false }) {
+  const [imgError, setImgError] = useState(false);
+
   if (hidden) {
     return (
       <div style={small ? styles.photoSmallHidden : styles.photoLargeHidden}>
-        <span style={{ animation: "pulse 1.5s infinite" }}>?</span>
+        <span>?</span>
+      </div>
+    );
+  }
+
+  // 외부 링크 차단 등으로 이미지가 터졌을 경우 안전하게 이모지로 대체
+  if (imgError) {
+    return (
+      <div style={small ? styles.photoSmallFallback : styles.photoLargeFallback}>
+        <span style={{ fontSize: small ? 24 : 52 }}>{sample.icon}</span>
       </div>
     );
   }
@@ -168,7 +179,8 @@ function RockPhoto({ sample, small = false, hidden = false }) {
     <div style={small ? styles.photoSmallWrapper : styles.photoLargeWrapper}>
       <img
         src={ROCK_IMAGES[sample.id]}
-        alt={`${sample.name} 암석 사진`}
+        alt={sample.name}
+        onError={() => setImgError(true)}
         style={styles.photoImg}
       />
     </div>
@@ -298,7 +310,7 @@ export default function App() {
 
     if (current.observeMode === "igneous") {
       if (!selectedGrain || !selectedColor) return setMessage("💡 화성암은 알갱이 크기와 색상을 필수 지정해야 합니다.");
-      if (selectedGrain !== current.grain || selectedColor !== current.color) return penalizeWrong("현미경 분석 실패: 입력한 조직 특징이 실물과 일치하지 않습니다.");
+      if (selectedGrain !== current.grain || selectedColor !== current.color) return penalizeWrong("현미경 분석 실패: 조직 특징이 실물과 일치하지 않습니다.");
     }
 
     if (current.observeMode === "sedimentary") {
@@ -387,7 +399,7 @@ export default function App() {
     );
   }
 
-  // 🚪 로그인 게이트웨이 화면 UI 개선
+  // 🚪 로그인 게이트웨이 화면 (made by 이나우 문구 추가)
   if (!playerName) {
     return (
       <main style={styles.pageCenter}>
@@ -410,12 +422,15 @@ export default function App() {
           <button onClick={startGame} style={styles.loginButton}>
             연구실 입장하기 🚀
           </button>
+          
+          {/* 하단 투명 크레딧 문구 추가 */}
+          <div style={styles.creditText}>made by 이나우</div>
         </div>
       </main>
     );
   }
 
-  // 🛰️ 메인 대시보드 화면 UI 개선
+  // 🛰️ 메인 대시보드 화면
   return (
     <main style={styles.page}>
       <div style={styles.shell}>
@@ -447,7 +462,7 @@ export default function App() {
         <Card style={styles.consoleCard}>
           <div style={styles.actionRow}>
             <div style={styles.messageBox}>
-              <span style={{ marginRight: 8 }}>🛰️ LOG:</span>
+              <span style={{ marginRight: 8, flexShrink: 0 }}>🛰️ LOG:</span>
               <span style={styles.messageText}>{message}</span>
             </div>
             <div style={styles.buttonRow}>
@@ -473,7 +488,7 @@ export default function App() {
                 <div style={styles.samplePanel}>
                   <RockPhoto sample={current} />
                   <div style={styles.rockIdentityBadge}>
-                    <span style={{ fontSize: 24 }}>{current.icon}</span>
+                    <span style={{ fontSize: 24, flexShrink: 0 }}>{current.icon}</span>
                     <h3 style={styles.rockName}>{current.name}</h3>
                   </div>
                   <div style={styles.clueContainer}>
@@ -560,7 +575,7 @@ export default function App() {
             </div>
           </Card>
 
-          {/* 인벤토리 섹션 */}
+          {/* 인벤토리 섹션 (글자 찌그러짐 현상 해소 및 둥근 카드 정렬 최적화) */}
           <Card style={styles.sidebarCard}>
             <div style={styles.panelHeader}>
               <div style={{ ...styles.panelTitleDot, backgroundColor: "#db2777" }}></div>
@@ -572,20 +587,22 @@ export default function App() {
                 const isVerified = verified[sample.id];
                 return (
                   <div key={sample.id} style={styles.inventoryRow}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
                       <RockPhoto sample={sample} small />
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 15 }}>{sample.icon} {sample.name}</div>
-                        <div style={{ fontSize: 12, color: "#6b7280" }}>보유 수량: <span style={{ color: count ? "#111827" : "#9ca3af", fontWeight: "bold" }}>{count}개</span></div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={styles.inventoryRockTitle}>{sample.icon} {sample.name}</div>
+                        <div style={styles.inventoryCountText}>보유 수량: <span>{count}개</span></div>
                       </div>
                     </div>
-                    <AppButton
-                      disabled={!count || !isVerified}
-                      onClick={() => sellSample(sample.id)}
-                      kind="secondary"
-                    >
-                      {isVerified ? `💰 학술 처분 (+${sample.value})` : "🔒 잠금(검증전)"}
-                    </AppButton>
+                    <div style={{ flexShrink: 0 }}>
+                      <AppButton
+                        disabled={!count || !isVerified}
+                        onClick={() => sellSample(sample.id)}
+                        kind={isVerified ? "secondary" : "primary"}
+                      >
+                        {isVerified ? `💰 학술 처분 (+${sample.value})` : "🔒 잠금(검증전)"}
+                      </AppButton>
+                    </div>
                   </div>
                 );
               })}
@@ -600,7 +617,6 @@ export default function App() {
   );
 }
 
-// 🎛️ 정밀 가감 선택지 그룹 컴포넌트 내부 UI 고도화
 function ChoiceGroup({ title, items, value, onSelect }) {
   return (
     <div style={{ marginBottom: 16 }}>
@@ -616,7 +632,6 @@ function ChoiceGroup({ title, items, value, onSelect }) {
   );
 }
 
-// 📈 상단 전광판 위젯 컴포넌트 스타일 강화
 function Stat({ icon, label, value, color }) {
   return (
     <div style={styles.statBox}>
@@ -631,9 +646,7 @@ function Stat({ icon, label, value, color }) {
   );
 }
 
-// 🎨 고급 테크니컬 GUI 전체 스타일 시트 정의
 const styles = {
-  // 베이스 셸 레이아웃
   page: {
     minHeight: "100vh",
     backgroundColor: "#f8fafc",
@@ -655,13 +668,12 @@ const styles = {
   },
   shell: { maxWidth: 1240, margin: "0 auto", display: "grid", gap: 20 },
   
-  // 로그인 카드 진입 컴포넌트
   loginCard: {
     background: "rgba(30, 41, 59, 0.7)",
     backdropFilter: "blur(16px)",
     border: "1px solid rgba(255, 255, 255, 0.1)",
     borderRadius: 32,
-    padding: "40px 32px",
+    padding: "40px 32px 24px",
     width: "100%",
     maxWidth: 440,
     boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
@@ -669,6 +681,7 @@ const styles = {
     flexDirection: "column",
     alignItems: "center",
     gap: 24,
+    position: "relative",
   },
   loginHeader: { textAlign: "center" },
   loginTitle: { margin: "12px 0 4px", fontSize: 32, fontWeight: 800, color: "#ffffff", letterSpacing: "-1px" },
@@ -697,10 +710,16 @@ const styles = {
     fontWeight: 700,
     cursor: "pointer",
     boxShadow: "0 10px 15px -3px rgba(59, 130, 246, 0.4)",
-    transition: "transform 0.1s ease",
+  },
+  creditText: {
+    marginTop: 8,
+    color: "#ffffff",
+    opacity: 0.35,
+    fontSize: 12,
+    fontWeight: 500,
+    letterSpacing: "0.5px"
   },
 
-  // 메인 상단 헤더 폰트 및 정보 보드
   hero: {
     background: "#ffffff",
     borderRadius: 24,
@@ -717,13 +736,12 @@ const styles = {
   heroTitle: { margin: 0, fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 900, color: "#0f172a", letterSpacing: "-1.5px" },
   subtitle: { margin: "6px 0 0", color: "#64748b", fontWeight: 600, fontSize: 14 },
   
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(140px, 1fr))", gap: 12, flex: "1 1 auto", maxWidth: 600 },
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, flex: "1 1 auto", maxWidth: 600 },
   statBox: { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 18, padding: "12px 16px", display: "flex", alignItems: "center", gap: 14 },
-  statIconCircle: { width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center", fontSize: 20, fontWeight: "bold" },
+  statIconCircle: { width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center", fontSize: 20, fontWeight: "bold", flexShrink: 0 },
   statValue: { fontSize: 18, fontWeight: 800, lineHeight: 1.2 },
   statLabel: { color: "#64748b", fontSize: 11, fontWeight: 700, marginBottom: 2 },
 
-  // 상단 공정 가이드맵 라인
   gameGuide: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 },
   guideStep: {
     background: "#ffffff",
@@ -738,27 +756,23 @@ const styles = {
   },
   stepBadge: { width: 20, height: 20, borderRadius: "50%", backgroundColor: "#0f172a", color: "#ffffff", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 800 },
 
-  // 실시간 커맨드 패널 콘솔
   consoleCard: { background: "#0f172a", border: "none", color: "#ffffff", borderRadius: 24, padding: 20, boxShadow: "0 20px 25px -5px rgba(15, 23, 42, 0.2)" },
   actionRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" },
   messageBox: { background: "#1e293b", borderRadius: 14, padding: "14px 18px", flex: 1, minWidth: 280, display: "flex", alignItems: "flex-start", borderLeft: "4px solid #3b82f6" },
   messageText: { fontWeight: 600, color: "#e2e8f0", fontSize: 14, lineHeight: 1.5 },
   buttonRow: { display: "flex", gap: 8, flexWrap: "wrap" },
 
-  // 글로벌 공통 입체 카드 객체
   card: { background: "#ffffff", borderRadius: 24, padding: 24, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.04)", border: "1px solid #e2e8f0" },
   panelHeader: { display: "flex", alignItems: "center", gap: 10, marginBottom: 18 },
   panelTitleDot: { width: 8, height: 16, borderRadius: 4, backgroundColor: "#3b82f6" },
   sectionTitle: { margin: 0, fontSize: 18, fontWeight: 800, color: "#0f172a" },
 
-  // 격자 스페이스 배치 엔진
   mainGrid: { display: "grid", gridTemplateColumns: "2.3fr 1fr", gap: 20, alignItems: "start" },
   observeContainer: { minWidth: 0 },
   sidebarCard: { backgroundColor: "#ffffff" },
   bottomGrid: { display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, alignItems: "start" },
   observeGrid: { display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 24 },
 
-  // 정밀 감정대 내부 비주얼 플레이트
   samplePanel: { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 20, padding: 20, textAlign: "center", display: "flex", flexDirection: "column", gap: 12 },
   rockIdentityBadge: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10, alignSelf: "center", background: "#ffffff", border: "1px solid #e2e8f0", padding: "6px 20px", borderRadius: 30, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" },
   rockName: { margin: 0, fontSize: 22, fontWeight: 900, color: "#0f172a" },
@@ -772,38 +786,41 @@ const styles = {
   choiceTitle: { margin: "0 0 8px", fontWeight: 700, color: "#334155", fontSize: 14 },
   choiceGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 },
 
-  // 이미지 해상도 보정 및 스켈레톤 디자인 블록
+  // 이미지 컨테이너 크기 방어 및 플랫 폴백 레이아웃 설정
   photoLargeWrapper: { width: "100%", height: 240, borderRadius: 16, backgroundColor: "#ffffff", border: "1px solid #e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" },
   photoSmallWrapper: { width: 54, height: 54, borderRadius: 12, backgroundColor: "#ffffff", border: "1px solid #e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
   photoLargeHidden: { width: "100%", height: 240, borderRadius: 16, background: "linear-gradient(135deg, #e2e8f0, #cbd5e1)", display: "grid", placeItems: "center", fontSize: 48, color: "#64748b", fontWeight: 900 },
   photoSmallHidden: { width: 54, height: 54, borderRadius: 12, background: "#e2e8f0", display: "grid", placeItems: "center", fontSize: 18, color: "#64748b", fontWeight: 900, flexShrink: 0 },
-  photoImg: { width: "100%", height: "100%", objectFit: "cover" },
+  
+  photoLargeFallback: { width: "100%", height: 240, borderRadius: 16, backgroundColor: "#f1f5f9", border: "1px solid #cbd5e1", display: "grid", placeItems: "center" },
+  photoSmallFallback: { width: 54, height: 54, borderRadius: 12, backgroundColor: "#f1f5f9", border: "1px solid #cbd5e1", display: "grid", placeItems: "center", flexShrink: 0 },
+  photoImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
 
-  // 원격 데이터 리더보드 시각화 고도화
   bestScoreBox: { background: "linear-gradient(135deg, #ecfccb, #d9f99d)", border: "1px solid #a3e635", color: "#3f6212", borderRadius: 16, padding: "14px 18px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 800, fontSize: 15 },
   rankList: { display: "grid", gap: 8 },
   rankRow: { borderRadius: 14, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: 13 },
   rankRowMe: { background: "#fef9c3", borderColor: "#fde047", boxShadow: "0 4px 6px -1px rgba(234, 179, 8, 0.1)" },
   rankUserGroup: { display: "flex", alignItems: "center", gap: 10 },
-  rankIconBox: { width: 24, textAlign: "center" },
+  rankIconBox: { width: 24, textAlign: "center", flexShrink: 0 },
   rankScoreText: { color: "#334155", fontSize: 14 },
   leaderboardNote: { margin: "14px 0 0", color: "#94a3b8", fontSize: 11, lineHeight: 1.4, textAlign: "justify" },
   emptyRank: { background: "#f1f5f9", borderRadius: 14, padding: 14, color: "#64748b", textAlign: "center", fontWeight: 600, fontSize: 13 },
 
-  // 도감 수집 서랍 격자 라인
   bookGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 },
   bookCardFound: { display: "flex", gap: 14, background: "#ffffff", border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)", borderRadius: 18, padding: 14, alignItems: "flex-start" },
   bookCardMissing: { display: "flex", gap: 14, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 18, padding: 14, alignItems: "flex-start", opacity: 0.7 },
   bookCardTitle: { fontWeight: 800, fontSize: 15, color: "#0f172a" },
   factText: { margin: "8px 0 0", color: "#475569", fontSize: 12, lineHeight: 1.5, background: "#f1f5f9", padding: "8px 10px", borderRadius: 8 },
 
-  // 인벤토리 저장 창고 컴포넌트
-  inventoryList: { display: "grid", gap: 8 },
-  inventoryRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 16, padding: 12 },
+  // 인벤토리(보관함) 찌그러짐 현상 완화 스타일링 변경
+  inventoryList: { display: "flex", flexDirection: "column", gap: 10 },
+  inventoryRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 20, padding: "12px 16px" },
+  inventoryRockTitle: { fontWeight: 700, fontSize: 15, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  inventoryCountText: { fontSize: 12, color: "#64748b", marginTop: 2, "& span": { fontWeight: 700, color: "#1e293b" } },
+  
   curriculumGoal: { margin: "18px 0 0", color: "#64748b", fontSize: 12, lineHeight: 1.6, background: "#f8fafc", border: "1px solid #e2e8f0", padding: 14, borderRadius: 14, textAlign: "justify" },
   smallText: { margin: "2px 0 0", color: "#64748b", fontSize: 12, fontWeight: 500 },
 
-  // 🚀 인터랙티브 버튼 스타일 명세 (기본 물리 스타일 및 배색 기법 통합)
   btnBase: {
     padding: "10px 18px",
     fontSize: "14px",
@@ -815,9 +832,10 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     gap: "6px",
-    transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    transition: "all 0.15s ease",
     boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.05)",
     userSelect: "none",
+    whiteSpace: "nowrap",
   },
   btnPrimary: { backgroundColor: "#ffffff", color: "#334155", border: "1px solid #cbd5e1" },
   btnSelected: { backgroundColor: "#0f172a", color: "#ffffff", boxShadow: "0 4px 12px rgba(15, 23, 42, 0.25)" },
