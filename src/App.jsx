@@ -144,20 +144,28 @@ function typeEmoji(type) {
 }
 
 function AppButton({ children, onClick, disabled, selected, kind = "primary" }) {
+  const baseBg = selected
+    ? "rgba(17,24,39,0.86)"
+    : kind === "secondary"
+      ? "rgba(253,230,138,0.72)"
+      : "rgba(255,255,255,0.48)";
+
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       style={{
-        border: selected ? "2px solid #111827" : "1px solid #d6d3d1",
-        background: selected ? "#111827" : kind === "secondary" ? "#fde68a" : "#ffffff",
+        border: selected ? "1px solid rgba(255,255,255,0.72)" : "1px solid rgba(255,255,255,0.62)",
+        background: baseBg,
         color: selected ? "white" : "#1f2937",
-        borderRadius: 14,
+        borderRadius: 16,
         padding: "10px 14px",
-        fontWeight: 700,
+        fontWeight: 800,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.45 : 1,
-        boxShadow: selected ? "0 6px 14px rgba(0,0,0,0.12)" : "none",
+        boxShadow: selected ? "0 12px 28px rgba(15,23,42,0.22)" : "0 8px 20px rgba(15,23,42,0.08)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
       }}
     >
       {children}
@@ -169,11 +177,13 @@ function Card({ children, style }) {
   return (
     <section
       style={{
-        background: "rgba(255,255,255,0.96)",
-        borderRadius: 26,
-        padding: 20,
-        boxShadow: "0 10px 28px rgba(92,64,28,0.10)",
-        border: "1px solid rgba(120,113,108,0.12)",
+        background: "rgba(255,255,255,0.42)",
+        borderRadius: 30,
+        padding: 22,
+        boxShadow: "0 18px 48px rgba(15,23,42,0.12)",
+        border: "1px solid rgba(255,255,255,0.62)",
+        backdropFilter: "blur(18px)",
+        WebkitBackdropFilter: "blur(18px)",
         ...style,
       }}
     >
@@ -182,7 +192,6 @@ function Card({ children, style }) {
   );
 }
 
-// ... (Keeping RockPhoto and other upper components exactly the same)
 function RockPhoto({ sample, small = false, hidden = false }) {
   if (hidden) {
     return (
@@ -246,6 +255,7 @@ export default function App() {
   const [book, setBook] = useState({});
   const [verified, setVerified] = useState({});
   const [savedLeaderboard, setSavedLeaderboard] = useState(STARTING_LEADERBOARD);
+  const [firebaseStatus, setFirebaseStatus] = useState("Firebase 연결 확인 중...");
   const [selectedType, setSelectedType] = useState("");
   const [selectedGrain, setSelectedGrain] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
@@ -256,13 +266,27 @@ export default function App() {
   const collectedCount = useMemo(() => Object.keys(book).length, [book]);
   useEffect(() => {
     const leaderboardRef = ref(db, "leaderboard");
-    const unsubscribe = onValue(leaderboardRef, (snapshot) => {
-      const data = snapshot.val() || {};
-      const entries = Object.values(data)
-        .filter((entry) => entry && entry.name && typeof entry.score === "number")
-        .sort((a, b) => b.score - a.score);
-      setSavedLeaderboard(entries);
-    });
+    const unsubscribe = onValue(
+      leaderboardRef,
+      (snapshot) => {
+        const data = snapshot.val() || {};
+        const entries = Object.entries(data)
+          .map(([key, entry]) => ({
+            key,
+            name: entry?.name || key,
+            score: Number(entry?.score ?? 0),
+            updatedAt: entry?.updatedAt || 0,
+          }))
+          .filter((entry) => entry.name && Number.isFinite(entry.score))
+          .sort((a, b) => b.score - a.score);
+        setSavedLeaderboard(entries);
+        setFirebaseStatus(`Firebase 연결됨 · ${entries.length}명 등록`);
+      },
+      (error) => {
+        setFirebaseStatus(`Firebase 읽기 오류: ${error.message}`);
+        setSavedLeaderboard([]);
+      }
+    );
     return () => unsubscribe();
   }, []);
 
@@ -398,6 +422,7 @@ export default function App() {
     setMessage("에너지를 충전했습니다.");
   }
 
+  
   function renderObservationChoices() {
     if (!current) return null;
 
@@ -427,13 +452,13 @@ export default function App() {
     );
   }
 
-  // Modified start screen conditional layout
   if (!playerName) {
     return (
       <main style={styles.pageCenter}>
         <Card style={{ width: "min(92vw, 430px)" }}>
           <h1 style={styles.title}>🪨 중2 과학 암석 연구소</h1>
           <p style={styles.muted}>리더보드에 표시할 이름을 입력하세요.</p>
+          <p style={styles.madeBy}>Made by 이나우</p>
           <input
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
@@ -444,10 +469,6 @@ export default function App() {
           <div style={{ marginTop: 12 }}>
             <AppButton onClick={startGame}>게임 시작</AppButton>
           </div>
-          {/* Added the low opacity watermark text right here */}
-          <p style={{ marginTop: 24, marginBottom: 0, textAlign: "center", fontSize: 11, color: "#78716c", opacity: 0.5, fontWeight: 500 }}>
-            Made by 이나우
-          </p>
         </Card>
       </main>
     );
@@ -520,13 +541,14 @@ export default function App() {
                 <div style={styles.emptyRank}>🪨 아직 등록된 점수가 없습니다.</div>
               )}
               {leaderboard.map((entry) => (
-                <div key={entry.name} style={{ ...styles.rankRow, background: entry.me ? "#fef3c7" : "#f5f5f4" }}>
+                <div key={entry.name} style={{ ...styles.rankRow, background: entry.me ? "rgba(254,243,199,0.68)" : "rgba(255,255,255,0.34)" }}>
                   <span>{rankEmoji(entry.rank)} {entry.rank}위 · {entry.name}{entry.me ? " 👤" : ""}</span>
                   <b>⭐ {entry.score}점</b>
                 </div>
               ))}
             </div>
-            <p style={styles.leaderboardNote}>Firebase 공유 리더보드와 연결되어 있습니다.</p>
+            <p style={styles.leaderboardNote}>{firebaseStatus}</p>
+            
           </Card>
         </div>
 
@@ -603,14 +625,16 @@ function Stat({ icon, label, value }) {
 const styles = {
   page: {
     minHeight: "100vh",
-    background: "linear-gradient(180deg, #fff7d6 0%, #fffbeb 45%, #f5f5f4 100%)",
+    background:
+      "radial-gradient(circle at 12% 8%, rgba(255,255,255,0.85) 0, rgba(255,255,255,0) 26%), radial-gradient(circle at 88% 12%, rgba(186,230,253,0.72) 0, rgba(186,230,253,0) 28%), radial-gradient(circle at 50% 96%, rgba(254,240,138,0.58) 0, rgba(254,240,138,0) 32%), linear-gradient(135deg, #f8fafc 0%, #e0f2fe 45%, #fef3c7 100%)",
     color: "#1c1917",
     padding: 20,
     fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   pageCenter: {
     minHeight: "100vh",
-    background: "linear-gradient(180deg, #fff7d6 0%, #fffbeb 100%)",
+    background:
+      "radial-gradient(circle at 18% 18%, rgba(255,255,255,0.88) 0, rgba(255,255,255,0) 28%), radial-gradient(circle at 82% 22%, rgba(186,230,253,0.78) 0, rgba(186,230,253,0) 30%), linear-gradient(135deg, #f8fafc 0%, #e0f2fe 48%, #fef3c7 100%)",
     display: "grid",
     placeItems: "center",
     color: "#1c1917",
@@ -618,14 +642,17 @@ const styles = {
   },
   shell: { maxWidth: 1180, margin: "0 auto", display: "grid", gap: 18 },
   hero: {
-    background: "#ffffff",
-    borderRadius: 28,
-    padding: 26,
+    background: "rgba(255,255,255,0.48)",
+    borderRadius: 34,
+    padding: 28,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     gap: 20,
-    boxShadow: "0 12px 32px rgba(92,64,28,0.10)",
+    boxShadow: "0 22px 54px rgba(15,23,42,0.13)",
+    border: "1px solid rgba(255,255,255,0.70)",
+    backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)",
   },
   gameGuide: {
     display: "grid",
@@ -633,18 +660,28 @@ const styles = {
     gap: 10,
   },
   guideStep: {
-    background: "#ffffff",
-    borderRadius: 18,
-    padding: "12px 14px",
+    background: "rgba(255,255,255,0.42)",
+    borderRadius: 22,
+    padding: "13px 15px",
     display: "grid",
     gap: 4,
-    boxShadow: "0 8px 20px rgba(92,64,28,0.08)",
-    border: "1px solid rgba(120,113,108,0.12)",
+    boxShadow: "0 12px 28px rgba(15,23,42,0.10)",
+    border: "1px solid rgba(255,255,255,0.64)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
   },
   heroTitle: { margin: 0, fontSize: "clamp(28px, 4vw, 46px)", letterSpacing: -1.5 },
   title: { margin: 0, fontSize: 32, letterSpacing: -1 },
   subtitle: { margin: "8px 0 0", color: "#78716c", fontWeight: 700 },
   muted: { color: "#78716c" },
+  madeBy: {
+    margin: "8px 0 14px",
+    color: "#1c1917",
+    opacity: 0.28,
+    fontSize: 13,
+    fontWeight: 800,
+    letterSpacing: 0.5,
+  },
   input: {
     width: "100%",
     boxSizing: "border-box",
@@ -655,26 +692,81 @@ const styles = {
     marginTop: 10,
   },
   stats: { display: "grid", gridTemplateColumns: "repeat(2, minmax(120px, 1fr))", gap: 10 },
-  statBox: { background: "#fef3c7", borderRadius: 18, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 },
+  statBox: {
+    background: "rgba(255,255,255,0.42)",
+    borderRadius: 22,
+    padding: "12px 14px",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    border: "1px solid rgba(255,255,255,0.62)",
+    boxShadow: "0 10px 24px rgba(15,23,42,0.09)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
+  },
   statValue: { fontSize: 22, fontWeight: 900, lineHeight: 1 },
   statLabel: { color: "#78716c", fontSize: 12, fontWeight: 700 },
   actionRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" },
-  message: { background: "#f5f5f4", borderRadius: 18, padding: "13px 16px", fontWeight: 700, flex: 1, minWidth: 260 },
+  message: {
+    background: "rgba(255,255,255,0.42)",
+    borderRadius: 22,
+    padding: "14px 17px",
+    fontWeight: 800,
+    flex: 1,
+    minWidth: 260,
+    border: "1px solid rgba(255,255,255,0.60)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+  },
   buttonRow: { display: "flex", gap: 8, flexWrap: "wrap" },
   mainGrid: { display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18 },
   bottomGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 },
   observeGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 },
-  samplePanel: { background: "#fff7ed", borderRadius: 24, padding: 18, textAlign: "center" },
-  choicePanel: { background: "#fafaf9", borderRadius: 24, padding: 18 },
+  samplePanel: {
+    background: "rgba(255,255,255,0.36)",
+    borderRadius: 28,
+    padding: 18,
+    textAlign: "center",
+    border: "1px solid rgba(255,255,255,0.58)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+  },
+  choicePanel: {
+    background: "rgba(255,255,255,0.32)",
+    borderRadius: 28,
+    padding: 18,
+    border: "1px solid rgba(255,255,255,0.54)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+  },
   sectionTitle: { margin: "0 0 14px", fontSize: 24 },
   rockName: { margin: "14px 0 6px", fontSize: 30 },
   clue: { margin: 0, color: "#57534e", lineHeight: 1.6 },
-  empty: { background: "#f5f5f4", borderRadius: 22, padding: 40, textAlign: "center", color: "#78716c", fontWeight: 700 },
+  empty: {
+    background: "rgba(255,255,255,0.36)",
+    borderRadius: 26,
+    padding: 40,
+    textAlign: "center",
+    color: "#78716c",
+    fontWeight: 800,
+    border: "1px solid rgba(255,255,255,0.58)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+  },
   choiceTitle: { margin: "0 0 8px", fontWeight: 900, color: "#44403c" },
   choiceGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 },
-  rankRow: { borderRadius: 16, padding: "12px 14px", display: "flex", justifyContent: "space-between", gap: 8 },
+  rankRow: {
+    borderRadius: 18,
+    padding: "12px 14px",
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 8,
+    border: "1px solid rgba(255,255,255,0.58)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+  },
   bestScoreBox: {
-    background: "#ecfccb",
+    background: "rgba(236,252,203,0.58)",
     borderRadius: 18,
     padding: "14px 16px",
     marginBottom: 12,
@@ -685,16 +777,40 @@ const styles = {
   },
   leaderboardNote: { margin: "12px 0 0", color: "#78716c", fontSize: 12, lineHeight: 1.4 },
   emptyRank: {
-    background: "#f5f5f4",
-    borderRadius: 16,
+    background: "rgba(255,255,255,0.36)",
+    borderRadius: 18,
     padding: "14px",
     color: "#78716c",
     textAlign: "center",
-    fontWeight: 700,
+    fontWeight: 800,
+    border: "1px solid rgba(255,255,255,0.58)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
   },
   bookGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 },
-  bookCard: { display: "flex", gap: 12, background: "#f5f5f4", borderRadius: 18, padding: 12, alignItems: "flex-start" },
-  inventoryRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: "#f5f5f4", borderRadius: 18, padding: 12 },
+  bookCard: {
+    display: "flex",
+    gap: 12,
+    background: "rgba(255,255,255,0.36)",
+    borderRadius: 20,
+    padding: 12,
+    alignItems: "flex-start",
+    border: "1px solid rgba(255,255,255,0.56)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+  },
+  inventoryRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    background: "rgba(255,255,255,0.36)",
+    borderRadius: 20,
+    padding: 12,
+    border: "1px solid rgba(255,255,255,0.56)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+  },
   smallText: { margin: "4px 0 0", color: "#78716c", fontSize: 13 },
   fact: { margin: "6px 0 0", color: "#57534e", fontSize: 12, lineHeight: 1.45 },
   goal: { margin: "14px 0 0", color: "#78716c", fontSize: 13, lineHeight: 1.5 },
