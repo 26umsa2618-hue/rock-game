@@ -17,23 +17,24 @@ const ROCKS=[
 ].map(([id,name,type,subtype,a,b,feature,fact,value])=>({id,name,type,subtype,a,b,feature,fact,value}));
 
 const PHOTO={
-granite:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Granite.jpg/640px-Granite.jpg",
-gabbro:"https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Gabbro.jpg/640px-Gabbro.jpg",
-basalt:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/BasaltUSGOV.jpg/640px-BasaltUSGOV.jpg",
-rhyolite:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/RhyoliteUSGOV.jpg/640px-RhyoliteUSGOV.jpg",
-conglomerate:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Conglomerate_Rock_in_Spain.jpg/640px-Conglomerate_Rock_in_Spain.jpg",
-sandstone:"https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Jacobsville_Sandstone_sample.jpg/640px-Jacobsville_Sandstone_sample.jpg",
-mudstone:"https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Mudstone.jpg/640px-Mudstone.jpg",
-limestone:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Limestone_%28coquina%29_student_sample.JPG/640px-Limestone_%28coquina%29_student_sample.JPG",
-gneiss:"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Gneiss.jpg/640px-Gneiss.jpg",
-marble:"https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Carrara_marble.jpg/640px-Carrara_marble.jpg",
-volcano:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Stromboli_eruption.jpg/1024px-Stromboli_eruption.jpg",
-lake:"https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Pond_at_Mission_Trails_Regional_Park.jpg/1024px-Pond_at_Mission_Trails_Regional_Park.jpg"
+granite:"/rock-game/rocks/granite.jpg",
+gabbro:"/rock-game/rocks/gabbro.jpg",
+basalt:"/rock-game/rocks/basalt.jpg",
+rhyolite:"/rock-game/rocks/rhyolite.jpg",
+conglomerate:"/rock-game/rocks/conglomerate.jpg",
+sandstone:"/rock-game/rocks/sandstone.jpg",
+mudstone:"/rock-game/rocks/mudstone.jpg",
+limestone:"/rock-game/rocks/limestone.jpg",
+gneiss:"/rock-game/rocks/gneiss.jpg",
+marble:"/rock-game/rocks/marble.jpg",
+volcano:"/rock-game/rocks/volcano.jpg",
+lake:"/rock-game/rocks/lake.jpg"
 };
 
 const firebaseConfig={apiKey:"AIzaSyBR_uqP_bJdTULAkcyQJF4p3ZIkLzY-30",authDomain:"rock-game-a09c2.firebaseapp.com",databaseURL:"https://rock-game-a09c2-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"rock-game-a09c2",storageBucket:"rock-game-a09c2.firebasestorage.app",messagingSenderId:"182019123095",appId:"1:182019123095:web:cda88c83d5a8464a7acd2"};
 const db=getDatabase(initializeApp(firebaseConfig));
-const K="rock-game-player-v6",P="rock-game-state-v6:";
+
+const K="rock-game-player-v9",P="rock-game-state-v9:";
 const DEF={coins:50,energy:8,score:0,level:1,inv:{},book:{},ver:{}};
 const LEVELS=[["초보 채굴가",0,0,0,0],["암석 수집가",60,20,3,2],["표본 감정사",150,35,4,4],["지질 탐험가",280,50,5,6],["암석 박사",450,80,6,9]].map(([t,min,coin,en,bonus],i)=>({lv:i+1,t,min,coin,en,bonus}));
 const by=id=>ROCKS.find(r=>r.id===id), one=a=>by(a[Math.floor(Math.random()*a.length)]);
@@ -49,7 +50,7 @@ export default function App(){
  const[player,setPlayer]=useState(initName),[name,setName]=useState("");
  const[coins,setCoins]=useState(init.coins),[energy,setEnergy]=useState(init.energy),[score,setScore]=useState(init.score),[level,setLevel]=useState(init.level);
  const[inv,setInv]=useState(init.inv),[book,setBook]=useState(init.book),[ver,setVer]=useState(init.ver);
- const[cur,setCur]=useState(null),[done,setDone]=useState(false),[msg,setMsg]=useState("실제 사진이 있는 환경을 클릭해 표본을 찾아보세요.");
+ const[cur,setCur]=useState(null),[done,setDone]=useState(false),[msg,setMsg]=useState("환경 사진을 클릭해 표본을 찾아보세요.");
  const[lb,setLb]=useState([]),[fb,setFb]=useState("Firebase 연결 확인 중");
  const[grain,setGrain]=useState(""),[color,setColor]=useState(""),[made,setMade]=useState(""),[feature,setFeature]=useState(""),[meta,setMeta]=useState(""),[kind,setKind]=useState("");
  const L=lev(score),N=nxt(level),progress=N?Math.max(0,Math.min(100,Math.round((score-L.min)/(N.min-L.min)*100))):100;
@@ -60,8 +61,8 @@ export default function App(){
 
  const clear=()=>{setGrain("");setColor("");setMade("");setFeature("");setMeta("");setKind("")};
  const start=()=>{let n=name.trim();if(!n)return;let used=new Set(lb.map(x=>x.name)),base=n,i=2;while(used.has(n))n=`${base}_${String(i++).padStart(3,"0")}`;setPlayer(n);save(n,DEF);setMsg(`${n} 계정이 이 브라우저에 저장되었습니다.`)};
- const addScore=g=>setScore(old=>{let ns=Math.max(0,old+g),ol=lev(old),nl=lev(ns);if(nl.lv>ol.lv){setLevel(nl.lv);setCoins(c=>c+nl.coin);setEnergy(e=>e+nl.en);setMsg(`🎉 Lv.${nl.lv} ${nl.t}! +${nl.coin}코인 +${nl.en}에너지`)}return ns});
- const wrong=m=>{setScore(s=>Math.max(0,s-3));setCoins(c=>Math.max(0,c-8));setMsg(`❌ ${m} -3점, -8코인`)};
+ const addScore=g=>setScore(old=>{let ns=Math.max(0,old+g),ol=lev(old),nl=lev(ns);if(nl.lv>ol.lv){setLevel(nl.lv);setCoins(c=>c+nl.coin);setEnergy(e=>e+nl.en);setMsg(`레벨 업! Lv.${nl.lv} ${nl.t} +${nl.coin}코인 +${nl.en}에너지`)}return ns});
+ const wrong=m=>{setScore(s=>Math.max(0,s-3));setCoins(c=>Math.max(0,c-8));setMsg(`${m} -3점, -8코인`)};
  const findRock=(r,place)=>{if(energy<1)return setMsg("에너지가 부족합니다.");setCur(r);setDone(false);setEnergy(e=>e-1);setInv(v=>({...v,[r.id]:(v[r.id]||0)+1}));clear();setMsg(`${place}에서 ${r.name} 발견! 관찰하고 검증하세요.`)};
  const clickVolcano=e=>{let y=(e.clientY-e.currentTarget.getBoundingClientRect().top)/e.currentTarget.getBoundingClientRect().height;findRock(y<.5?one(["basalt","rhyolite"]):one(["granite","gabbro"]),y<.5?"화산암 구역":"심성암 구역")};
  const clickLake=e=>{let r=e.currentTarget.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;findRock(y<.5&&x<.5?by("conglomerate"):y<.5?by("sandstone"):x<.5?by("mudstone"):by("limestone"),"호수 퇴적층")};
@@ -71,7 +72,7 @@ export default function App(){
   if(r.type==="퇴적암"){if(!made||!feature)return setMsg("퇴적 흔적과 특징을 선택하세요.");if(made!==r.a||feature!==r.feature)return wrong("관찰 결과가 틀렸습니다.")}
   if(r.type==="변성암"){if(!meta||!feature)return setMsg("변성 흔적과 특징을 선택하세요.");if(meta!==r.a||feature!==r.feature)return wrong("관찰 결과가 틀렸습니다.")}
   if(!kind)return setMsg("암석 종류를 선택하세요.");if(kind!==r.type)return wrong("암석 종류가 틀렸습니다.");
-  let g=12+L.bonus;addScore(g);setCoins(c=>c+Math.floor(r.value/2));setBook(b=>({...b,[r.id]:true}));setVer(v=>({...v,[r.id]:true}));setDone(true);setMsg(`✅ ${r.name} 검증 성공! +${g}점`);
+  let g=12+L.bonus;addScore(g);setCoins(c=>c+Math.floor(r.value/2));setBook(b=>({...b,[r.id]:true}));setVer(v=>({...v,[r.id]:true}));setDone(true);setMsg(`${r.name} 검증 성공! +${g}점`);
  };
  const sell=id=>{let r=by(id);if(!inv[id])return;if(!ver[id])return setMsg("검증 필요");setInv(v=>({...v,[id]:v[id]-1}));setCoins(c=>c+r.value);addScore(5);setMsg(`${r.name} 판매! +${r.value}코인`)};
  const charge=()=>coins<35?setMsg("35코인이 필요합니다."): (setCoins(c=>c-35),setEnergy(e=>e+4),setMsg("에너지 +4, -35코인"));
@@ -84,8 +85,8 @@ export default function App(){
   <section className="card level"><b>Lv.{level} {L.t}</b><div className="bar"><span style={{width:progress+"%"}}/></div><small>{N?`다음: Lv.${N.lv} ${N.t} · ${N.min-score}점 남음`:"최고 레벨"}</small></section>
   <section className="card message"><b>{msg}</b><div><button onClick={verify}>검증</button><button onClick={charge}>충전 -35</button><button onClick={skip}>넘기기 -10</button></div></section>
   <section className="worlds">
-   <World title="화산 · 화성암 생성" desc="위쪽 화산암 구역: 현무암/유문암 랜덤 · 아래쪽 심성암 구역: 화강암/반려암 랜덤"><button className="photoScene volcano" onClick={clickVolcano} disabled={energy<1}><img src={PHOTO.volcano}/><span className="label top">화산암 구역<br/>현무암 · 유문암</span><span className="label bottom">심성암 구역<br/>화강암 · 반려암</span></button></World>
-   <World title="호수/연못 퇴적층" desc="자갈·모래·진흙·조개층을 눌러 역암/사암/이암/석회암을 얻습니다."><button className="photoScene lake" onClick={clickLake} disabled={energy<1}><img src={PHOTO.lake}/><span className="lakeGrid a">역암</span><span className="lakeGrid b">사암</span><span className="lakeGrid c">이암</span><span className="lakeGrid d">석회암</span></button></World>
+   <World title="화산 · 화성암 생성" desc="위쪽 화산암 구역: 현무암/유문암 랜덤 · 아래쪽 심성암 구역: 화강암/반려암 랜덤"><button className="photoScene" onClick={clickVolcano} disabled={energy<1}><img src={PHOTO.volcano} alt="화산 사진"/><span className="label top">화산암 구역<br/>현무암 · 유문암</span><span className="label bottom">심성암 구역<br/>화강암 · 반려암</span></button></World>
+   <World title="호수/연못 퇴적층" desc="자갈·모래·진흙·조개층을 눌러 역암/사암/이암/석회암을 얻습니다."><button className="photoScene" onClick={clickLake} disabled={energy<1}><img src={PHOTO.lake} alt="호수 사진"/><span className="lakeGrid a">역암</span><span className="lakeGrid b">사암</span><span className="lakeGrid c">이암</span><span className="lakeGrid d">석회암</span></button></World>
    <World title="변성 작용 실험실" desc="기존 암석 + 열과 압력 → 변성암"><div className="lab"><div>압력 + 열 + 압력</div><button onClick={()=>transform("granite")}>화강암 → 편마암</button><button onClick={()=>transform("limestone")}>석회암 → 대리암</button></div></World>
   </section>
   <section className="mainGrid">
@@ -102,5 +103,5 @@ export default function App(){
 function Choices({r,vals,sets}){return <div>{r.type==="화성암"&&<><Group t="알갱이 크기" a={["큼","작음"]} v={vals.grain} f={sets.setGrain}/><Group t="색깔" a={["밝은색 계열","어두운색 계열"]} v={vals.color} f={sets.setColor}/></>}{r.type==="퇴적암"&&<><Group t="만들어진 흔적" a={["퇴적물이 쌓여 굳어진 모습","화석이나 생물 흔적이 보일 수 있음"]} v={vals.made} f={sets.setMade}/><Group t="특징" a={["큰 자갈 알갱이가 보임","층리가 나타날 수 있음","알갱이가 매우 작음","묽은 염산에 기포가 생김"]} v={vals.feature} f={sets.setFeature}/></>}{r.type==="변성암"&&<><Group t="변한 흔적" a={["줄무늬나 엽리가 보임","기존 암석이 변한 모습"]} v={vals.meta} f={sets.setMeta}/><Group t="특징" a={["열과 압력을 받은 흔적이 있음","석회암이 변성되어 만들어짐"]} v={vals.feature} f={sets.setFeature}/></>}<Group t="암석 종류" a={["화성암","퇴적암","변성암"]} v={vals.kind} f={sets.setKind}/></div>}
 function Group({t,a,v,f}){return <div className="choices"><b>{t}</b>{a.map(x=><button className={v===x?"selected":""} onClick={()=>f(x)} key={x}>{x}</button>)}</div>}
 function World({title,desc,children}){return <section className="card world"><h2>{title}</h2>{children}<p>{desc}</p></section>}
-function Photo({r,hidden}){return <div className="photo">{hidden?"?":<img src={PHOTO[r.id]} alt={r.name} onError={e=>{e.currentTarget.parentElement.textContent=r.name}}/>}</div>}
+function Photo({r,hidden}){return <div className="photo">{hidden?"?":<img src={PHOTO[r.id]} alt={r.name}/>}</div>}
 function Stat({l,v}){return <div className="stat"><b>{v}</b><small>{l}</small></div>}
