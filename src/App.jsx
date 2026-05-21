@@ -52,7 +52,7 @@ export default function App(){
  const[player,setPlayer]=useState(initName),[name,setName]=useState("");
  const[coins,setCoins]=useState(init.coins),[energy,setEnergy]=useState(init.energy),[score,setScore]=useState(init.score),[level,setLevel]=useState(init.level);
  const[inv,setInv]=useState(init.inv),[book,setBook]=useState(init.book),[ver,setVer]=useState(init.ver);
- const[cur,setCur]=useState(null),[done,setDone]=useState(false),[msg,setMsg]=useState("환경 사진을 클릭해 표본을 찾아보세요.");
+ const[cur,setCur]=useState(null),[done,setDone]=useState(false),[msg,setMsg]=useState("✨ 환경 사진을 클릭해 표본을 찾아보세요.");
  const[lb,setLb]=useState([]),[fb,setFb]=useState("Firebase 연결 확인 중");
  const[grain,setGrain]=useState(""),[color,setColor]=useState(""),[made,setMade]=useState(""),[feature,setFeature]=useState(""),[meta,setMeta]=useState(""),[kind,setKind]=useState("");
  const L=lev(score),N=nxt(level),progress=N?Math.max(0,Math.min(100,Math.round((score-L.min)/(N.min-L.min)*100))):100;
@@ -80,24 +80,24 @@ export default function App(){
  const charge=()=>coins<35?setMsg("35코인이 필요합니다."): (setCoins(c=>c-35),setEnergy(e=>e+4),setMsg("에너지 +4, -35코인"));
  const skip=()=>cur?(setCur(null),setDone(false),clear(),setScore(s=>Math.max(0,s-10)),setMsg("표본을 넘겼습니다. -10점")):setMsg("넘길 표본이 없습니다.");
 
- if(!player)return <main className="page center"><section className="card start"><h1>중2 과학 암석 연구소</h1><p>이름은 이 브라우저에 저장됩니다.</p><p className="made">Made by 이나우</p><input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&start()} placeholder="이름 입력"/><button onClick={start}>게임 시작</button></section></main>;
+ if(!player)return <main className="page center"><section className="card start"><h1>🧪 중2 과학 암석 연구소</h1><p>이름은 이 브라우저에 저장됩니다.</p><p className="made">Made by 이나우</p><input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&start()} placeholder="이름 입력"/><button onClick={start}>게임 시작</button></section></main>;
 
  return <main className="page"><div className="shell">
-  <header className="hero card"><div><h1>중2 과학 암석 연구소</h1><p>실제 사진으로 관찰 · 분류 · 검증</p></div><div className="stats"><Stat l="코인" v={coins}/><Stat l="에너지" v={energy}/><Stat l="점수" v={score}/><Stat l={L.t} v={`Lv.${level}`}/></div></header>
+  <header className="hero card"><div><h1>🧪 중2 과학 암석 연구소</h1><p>🔎 실제 사진으로 관찰 · 🧭 분류 · ✅ 검증</p></div><div className="stats"><Stat l="코인" v={coins}/><Stat l="에너지" v={energy}/><Stat l="점수" v={score}/><Stat l={L.t} v={`Lv.${level}`}/></div></header>
   <section className="card level"><b>Lv.{level} {L.t}</b><div className="bar"><span style={{width:progress+"%"}}/></div><small>{N?`다음: Lv.${N.lv} ${N.t} · ${N.min-score}점 남음`:"최고 레벨"}</small></section>
-  <section className="card message"><b>{msg}</b><div><button onClick={verify}>검증</button><button onClick={charge}>충전 -35</button><button onClick={skip}>넘기기 -10</button></div></section>
+  <section className="card message"><b>{msg}</b><div><button onClick={verify}>✅ 검증</button><button onClick={charge}>⚡ 충전 -35</button><button onClick={skip}>⏭️ 넘기기 -10</button></div></section>
   <section className="worlds">
-   <World title="화산 · 화성암 생성" desc="위쪽 화산암 구역: 현무암/유문암 랜덤 · 아래쪽 심성암 구역: 화강암/반려암 랜덤"><button className="photoScene" onClick={clickVolcano} disabled={energy<1}><img src={PHOTO.volcano} alt="화산 사진"/><span className="label top">화산암 구역<br/>현무암 · 유문암</span><span className="label bottom">심성암 구역<br/>화강암 · 반려암</span></button></World>
-   <World title="호수/연못 퇴적층" desc="자갈·모래·진흙·조개층을 눌러 역암/사암/이암/석회암을 얻습니다."><button className="photoScene" onClick={clickLake} disabled={energy<1}><img src={PHOTO.lake} alt="호수 사진"/><span className="lakeGrid a">역암</span><span className="lakeGrid b">사암</span><span className="lakeGrid c">이암</span><span className="lakeGrid d">석회암</span></button></World>
-   <World title="변성 작용 실험실" desc="기존 암석 + 열과 압력 → 변성암"><div className="lab"><div>압력 + 열 + 압력</div><button onClick={()=>transform("granite")}>화강암 → 편마암</button><button onClick={()=>transform("limestone")}>석회암 → 대리암</button></div></World>
+   <World title="🌋 화산 · 화성암 생성" desc="위쪽 화산암 구역: 현무암/유문암 랜덤 · 아래쪽 심성암 구역: 화강암/반려암 랜덤"><button className="photoScene" onClick={clickVolcano} disabled={energy<1}><img src={PHOTO.volcano} alt="화산 사진"/><span className="label top">화산암 구역<br/>현무암 · 유문암</span><span className="label bottom">심성암 구역<br/>화강암 · 반려암</span></button></World>
+   <World title="🐟 호수/연못 퇴적층" desc="자갈·모래·진흙·조개층을 눌러 역암/사암/이암/석회암을 얻습니다."><button className="photoScene" onClick={clickLake} disabled={energy<1}><img src={PHOTO.lake} alt="호수 사진"/><span className="lakeGrid a">역암</span><span className="lakeGrid b">사암</span><span className="lakeGrid c">이암</span><span className="lakeGrid d">석회암</span></button></World>
+   <World title="🔥 변성 작용 실험실" desc="기존 암석 + 열과 압력 → 변성암"><div className="lab"><div>압력 + 열 + 압력</div><button onClick={()=>transform("granite")}>화강암 → 편마암</button><button onClick={()=>transform("limestone")}>석회암 → 대리암</button></div></World>
   </section>
   <section className="mainGrid">
-   <section className="card observe"><h2>현재 표본</h2>{cur?<><Photo r={cur}/><h3>{cur.name}</h3><p>{cur.fact}</p><Choices r={cur} vals={{grain,color,made,feature,meta,kind}} sets={{setGrain,setColor,setMade,setFeature,setMeta,setKind}}/></>:<p className="empty">환경 사진을 클릭해 표본을 찾으세요.</p>}</section>
-   <section className="card"><h2>리더보드</h2><div className="best">내 최고점 <b>{lb.find(x=>x.name===player)?.score||score}점</b></div>{lb.slice(0,10).map((e,i)=><p className={e.name===player?"rank me":"rank"} key={e.name}><span>{i+1}위 · {e.name}</span><b>{e.score}점</b></p>)}<small>{fb}</small></section>
+   <section className="card observe"><h2>🔬 현재 표본</h2>{cur?<><Photo r={cur}/><h3>{cur.name}</h3><p>{cur.fact}</p><Choices r={cur} vals={{grain,color,made,feature,meta,kind}} sets={{setGrain,setColor,setMade,setFeature,setMeta,setKind}}/></>:<p className="empty">환경 사진을 클릭해 표본을 찾으세요.</p>}</section>
+   <section className="card"><h2>🏆 리더보드</h2><div className="best">내 최고점 <b>{lb.find(x=>x.name===player)?.score||score}점</b></div>{lb.slice(0,10).map((e,i)=><p className={e.name===player?"rank me":"rank"} key={e.name}><span>{i+1}위 · {e.name}</span><b>{e.score}점</b></p>)}<small>{fb}</small></section>
   </section>
   <section className="mainGrid">
-   <section className="card"><h2>도감 {Object.keys(book).length}/{ROCKS.length}</h2><div className="book">{ROCKS.map(r=><div key={r.id} className="bookItem"><Photo r={r} hidden={!book[r.id]}/><b>{book[r.id]?r.name:"미발견"}</b><small>{book[r.id]?r.fact:"검증하면 열립니다."}</small></div>)}</div></section>
-   <section className="card"><h2>보관함</h2>{ROCKS.map(r=><p className="bag" key={r.id}><span>{r.name} × {inv[r.id]||0}</span><button disabled={!inv[r.id]||!ver[r.id]} onClick={()=>sell(r.id)}>판매</button></p>)}</section>
+   <section className="card"><h2>📘 도감 {Object.keys(book).length}/{ROCKS.length}</h2><div className="book">{ROCKS.map(r=><div key={r.id} className="bookItem"><Photo r={r} hidden={!book[r.id]}/><b>{book[r.id]?r.name:"미발견"}</b><small>{book[r.id]?r.fact:"검증하면 열립니다."}</small></div>)}</div></section>
+   <section className="card"><h2>🎒 보관함</h2>{ROCKS.map(r=><p className="bag" key={r.id}><span>{r.name} × {inv[r.id]||0}</span><button disabled={!inv[r.id]||!ver[r.id]} onClick={()=>sell(r.id)}>판매</button></p>)}</section>
   </section>
  </div></main>
 }
