@@ -17,18 +17,18 @@ const ROCKS=[
 ].map(([id,name,type,subtype,a,b,feature,fact,value])=>({id,name,type,subtype,a,b,feature,fact,value}));
 
 const PHOTO={
-granite:"/rock-game/rocks/granite.jpg",
-gabbro:"/rock-game/rocks/gabbro.jpg",
-basalt:"/rock-game/rocks/basalt.jpg",
-rhyolite:"/rock-game/rocks/rhyolite.jpg",
-conglomerate:"/rock-game/rocks/conglomerate.jpg",
-sandstone:"/rock-game/rocks/sandstone.jpg",
-mudstone:"/rock-game/rocks/mudstone.jpg",
-limestone:"/rock-game/rocks/limestone.jpg",
-gneiss:"/rock-game/rocks/gneiss.jpg",
-marble:"/rock-game/rocks/marble.jpg",
-volcano:"/rock-game/rocks/volcano.jpg",
-lake:"/rock-game/rocks/lake.jpg"
+granite:"/rocks/granite.jpg",
+gabbro:"/rocks/gabbro.jpg",
+basalt:"/rocks/basalt.jpg",
+rhyolite:"/rocks/rhyolite.jpg",
+conglomerate:"/rocks/conglomerate.jpg",
+sandstone:"/rocks/sandstone.jpg",
+mudstone:"/rocks/mudstone.jpg",
+limestone:"/rocks/limestone.jpg",
+gneiss:"/rocks/gneiss.jpg",
+marble:"/rocks/marble.jpg",
+volcano:"/rocks/volcano.jpg",
+lake:"/rocks/lake.jpg"
 };
 
 const firebaseConfig={apiKey:"AIzaSyBR_uqP_bJdTULAkcyQJF4p3ZIkLzY-30",authDomain:"rock-game-a09c2.firebaseapp.com",databaseURL:"https://rock-game-a09c2-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"rock-game-a09c2",storageBucket:"rock-game-a09c2.firebasestorage.app",messagingSenderId:"182019123095",appId:"1:182019123095:web:cda88c83d5a8464a7acd2"};
