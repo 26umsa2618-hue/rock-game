@@ -271,3 +271,69 @@ button:hover{transform:translateY(-2px);background:rgba(255,255,255,.84)}
   .photoScene{height:190px}
   .hero h1{font-size:28px}
 }
+
+
+/* visibility fixes */
+.card,
+.card *,
+.start,
+.start *,
+.hero,
+.hero *,
+.level,
+.level *,
+.message,
+.message *,
+.world,
+.world *,
+.mainGrid,
+.mainGrid * {
+  color: #020617;
+}
+
+.hero p,
+.world p,
+.observe p,
+.bookItem small,
+.stat small {
+  color: #1f2937;
+}
+
+.start {
+  color: #020617;
+}
+
+.start h1,
+.start p,
+.start input,
+.start button {
+  color: #020617;
+}
+
+.start input::placeholder {
+  color: #374151;
+  opacity: 1;
+}
+
+.made {
+  color: #020617;
+  opacity: .45;
+}
+
+.label,
+.lakeGrid {
+  color: #020617 !important;
+  background: rgba(255,255,255,.82);
+}
+
+button {
+  color: #020617;
+}
+
+.selected {
+  color: white !important;
+}
+
+.empty {
+  color: #111827;
+}

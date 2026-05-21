@@ -37,7 +37,7 @@ const firebaseConfig={apiKey:"AIzaSyBR_uqP_bJdTULAkcyQJF4p3ZIkLzY-30",authDomain
 const db=getDatabase(initializeApp(firebaseConfig));
 
 const K="rock-game-player-v9",P="rock-game-state-v9:";
-const DEF={coins:50,energy:8,score:0,level:1,inv:{},book:{},ver:{}};
+const DEF={coins:50,energy:8,score:0,level:1,inv:{},book:{},ver:{},cooldown:{}};
 const LEVELS=[["초보 채굴가",0,0,0,0],["암석 수집가",60,20,3,2],["표본 감정사",150,35,4,4],["지질 탐험가",280,50,5,6],["암석 박사",450,80,6,9]].map(([t,min,coin,en,bonus],i)=>({lv:i+1,t,min,coin,en,bonus}));
 const by=id=>ROCKS.find(r=>r.id===id), one=a=>by(a[Math.floor(Math.random()*a.length)]);
 const safe=s=>s.trim().replace(/[.#$\[\]/]/g,"_").slice(0,30)||"player";
@@ -51,13 +51,13 @@ export default function App(){
  const initName=useMemo(loadName,[]), init=useMemo(()=>loadState(initName),[initName]);
  const[player,setPlayer]=useState(initName),[name,setName]=useState("");
  const[coins,setCoins]=useState(init.coins),[energy,setEnergy]=useState(init.energy),[score,setScore]=useState(init.score),[level,setLevel]=useState(init.level);
- const[inv,setInv]=useState(init.inv),[book,setBook]=useState(init.book),[ver,setVer]=useState(init.ver);
+ const[inv,setInv]=useState(init.inv),[book,setBook]=useState(init.book),[ver,setVer]=useState(init.ver),[cooldown,setCooldown]=useState(init.cooldown||{});
  const[cur,setCur]=useState(null),[done,setDone]=useState(false),[msg,setMsg]=useState("✨ 환경 사진을 클릭해 표본을 찾아보세요.");
  const[lb,setLb]=useState([]),[fb,setFb]=useState("Firebase 연결 확인 중");
  const[grain,setGrain]=useState(""),[color,setColor]=useState(""),[made,setMade]=useState(""),[feature,setFeature]=useState(""),[meta,setMeta]=useState(""),[kind,setKind]=useState("");
  const L=lev(score),N=nxt(level),progress=N?Math.max(0,Math.min(100,Math.round((score-L.min)/(N.min-L.min)*100))):100;
 
- useEffect(()=>save(player,{coins,energy,score,level,inv,book,ver}),[player,coins,energy,score,level,inv,book,ver]);
+ useEffect(()=>save(player,{coins,energy,score,level,inv,book,ver,cooldown}),[player,coins,energy,score,level,inv,book,ver,cooldown]);
  useEffect(()=>onValue(ref(db,"leaderboard"),s=>{let rows=Object.entries(s.val()||{}).map(([k,v])=>({name:v?.name||k,score:Number(v?.score||0)})).sort((a,b)=>b.score-a.score);setLb(rows);setFb(`Firebase 연결됨 · ${rows.length}명 등록`)},e=>setFb("Firebase 오류: "+e.message)),[]);
  useEffect(()=>{if(player)set(ref(db,"leaderboard/"+safe(player)),{name:player,score:Math.max(score,lb.find(x=>x.name===player)?.score||0),updatedAt:Date.now()})},[player,score]);
 
@@ -65,16 +65,35 @@ export default function App(){
  const start=()=>{let n=name.trim();if(!n)return;let used=new Set(lb.map(x=>x.name)),base=n,i=2;while(used.has(n))n=`${base}_${String(i++).padStart(3,"0")}`;setPlayer(n);save(n,DEF);setMsg(`${n} 계정이 이 브라우저에 저장되었습니다.`)};
  const addScore=g=>setScore(old=>{let ns=Math.max(0,old+g),ol=lev(old),nl=lev(ns);if(nl.lv>ol.lv){setLevel(nl.lv);setCoins(c=>c+nl.coin);setEnergy(e=>e+nl.en);setMsg(`레벨 업! Lv.${nl.lv} ${nl.t} +${nl.coin}코인 +${nl.en}에너지`)}return ns});
  const wrong=m=>{setScore(s=>Math.max(0,s-3));setCoins(c=>Math.max(0,c-8));setMsg(`${m} -3점, -8코인`)};
+ const chooseAvailable=ids=>{
+  const available=ids.filter(id=>!cooldown[id]);
+  if(available.length===0){
+   setMsg("🧊 이 구역의 암석은 모두 쿨다운 중입니다. 다른 구역을 먼저 맞혀보세요.");
+   return null;
+  }
+  return one(available);
+ };
+ const markCooldown=id=>{
+  setCooldown(prev=>{
+   const next={...prev,[id]:true};
+   const guessed=Object.keys(next).length;
+   if(guessed>=ROCKS.length){
+    setMsg("🎉 모든 암석을 한 번씩 맞혔습니다! 쿨다운이 초기화됩니다.");
+    return {};
+   }
+   return next;
+  });
+ };
  const findRock=(r,place)=>{if(energy<1)return setMsg("에너지가 부족합니다.");setCur(r);setDone(false);setEnergy(e=>e-1);setInv(v=>({...v,[r.id]:(v[r.id]||0)+1}));clear();setMsg(`${place}에서 ${r.name} 발견! 관찰하고 검증하세요.`)};
- const clickVolcano=e=>{let y=(e.clientY-e.currentTarget.getBoundingClientRect().top)/e.currentTarget.getBoundingClientRect().height;findRock(y<.5?one(["basalt","rhyolite"]):one(["granite","gabbro"]),y<.5?"화산암 구역":"심성암 구역")};
- const clickLake=e=>{let r=e.currentTarget.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;findRock(y<.5&&x<.5?by("conglomerate"):y<.5?by("sandstone"):x<.5?by("mudstone"):by("limestone"),"호수 퇴적층")};
- const transform=id=>{let out=id==="granite"?by("gneiss"):id==="limestone"?by("marble"):null,src=by(id);if((inv[id]||0)<1)return setMsg(`${src.name} 표본이 필요합니다.`);if(energy<1)return setMsg("에너지가 부족합니다.");setInv(v=>({...v,[id]:v[id]-1,[out.id]:(v[out.id]||0)+1}));setEnergy(e=>e-1);setCur(out);setDone(false);clear();setMsg(`${src.name}에 열과 압력을 가해 ${out.name}이 만들어졌습니다.`)};
+ const clickVolcano=e=>{let y=(e.clientY-e.currentTarget.getBoundingClientRect().top)/e.currentTarget.getBoundingClientRect().height;let ids=y<.5?["basalt","rhyolite"]:["granite","gabbro"];let sample=chooseAvailable(ids);if(sample)findRock(sample,y<.5?"화산암 구역":"심성암 구역")};
+ const clickLake=e=>{let r=e.currentTarget.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;let id=y<.5&&x<.5?"conglomerate":y<.5?"sandstone":x<.5?"mudstone":"limestone";let sample=chooseAvailable([id]);if(sample)findRock(sample,"호수 퇴적층")};
+ const transform=id=>{let out=id==="granite"?by("gneiss"):id==="limestone"?by("marble"):null,src=by(id);if(!out)return;if(cooldown[out.id])return setMsg(`🧊 ${out.name}은 쿨다운 중입니다. 다른 암석을 먼저 맞혀보세요.`);if((inv[id]||0)<1)return setMsg(`${src.name} 표본이 필요합니다.`);if(energy<1)return setMsg("에너지가 부족합니다.");setInv(v=>({...v,[id]:v[id]-1,[out.id]:(v[out.id]||0)+1}));setEnergy(e=>e-1);setCur(out);setDone(false);clear();setMsg(`${src.name}에 열과 압력을 가해 ${out.name}이 만들어졌습니다.`)};
  const verify=()=>{let r=cur;if(!r)return setMsg("먼저 표본을 찾으세요.");if(done)return setMsg("이미 검증된 표본입니다.");
   if(r.type==="화성암"){if(!grain||!color)return setMsg("알갱이 크기와 색깔을 선택하세요.");if(grain!==r.a||color!==r.b)return wrong("관찰 결과가 틀렸습니다.")}
   if(r.type==="퇴적암"){if(!made||!feature)return setMsg("퇴적 흔적과 특징을 선택하세요.");if(made!==r.a||feature!==r.feature)return wrong("관찰 결과가 틀렸습니다.")}
   if(r.type==="변성암"){if(!meta||!feature)return setMsg("변성 흔적과 특징을 선택하세요.");if(meta!==r.a||feature!==r.feature)return wrong("관찰 결과가 틀렸습니다.")}
   if(!kind)return setMsg("암석 종류를 선택하세요.");if(kind!==r.type)return wrong("암석 종류가 틀렸습니다.");
-  let g=12+L.bonus;addScore(g);setCoins(c=>c+Math.floor(r.value/2));setBook(b=>({...b,[r.id]:true}));setVer(v=>({...v,[r.id]:true}));setDone(true);setMsg(`${r.name} 검증 성공! +${g}점`);
+  let g=12+L.bonus;addScore(g);setCoins(c=>c+Math.floor(r.value/2));setBook(b=>({...b,[r.id]:true}));setVer(v=>({...v,[r.id]:true}));markCooldown(r.id);setDone(true);setMsg(`${r.name} 검증 성공! +${g}점 · 이 암석은 잠시 쿨다운됩니다.`);
  };
  const sell=id=>{let r=by(id);if(!inv[id])return;if(!ver[id])return setMsg("검증 필요");setInv(v=>({...v,[id]:v[id]-1}));setCoins(c=>c+r.value);addScore(5);setMsg(`${r.name} 판매! +${r.value}코인`)};
  const charge=()=>coins<35?setMsg("35코인이 필요합니다."): (setCoins(c=>c-35),setEnergy(e=>e+4),setMsg("에너지 +4, -35코인"));
@@ -85,7 +104,7 @@ export default function App(){
  return <main className="page"><div className="shell">
   <header className="hero card"><div><h1>🧪 중2 과학 암석 연구소</h1><p>🔎 실제 사진으로 관찰 · 🧭 분류 · ✅ 검증</p></div><div className="stats"><Stat l="코인" v={coins}/><Stat l="에너지" v={energy}/><Stat l="점수" v={score}/><Stat l={L.t} v={`Lv.${level}`}/></div></header>
   <section className="card level"><b>Lv.{level} {L.t}</b><div className="bar"><span style={{width:progress+"%"}}/></div><small>{N?`다음: Lv.${N.lv} ${N.t} · ${N.min-score}점 남음`:"최고 레벨"}</small></section>
-  <section className="card message"><b>{msg}</b><div><button onClick={verify}>✅ 검증</button><button onClick={charge}>⚡ 충전 -35</button><button onClick={skip}>⏭️ 넘기기 -10</button></div></section>
+  <section className="card message"><b>{msg}<br/><small>🧊 쿨다운: {Object.keys(cooldown).length}/{ROCKS.length}</small></b><div><button onClick={verify}>✅ 검증</button><button onClick={charge}>⚡ 충전 -35</button><button onClick={skip}>⏭️ 넘기기 -10</button></div></section>
   <section className="worlds">
    <World title="🌋 화산 · 화성암 생성" desc="위쪽 화산암 구역: 현무암/유문암 랜덤 · 아래쪽 심성암 구역: 화강암/반려암 랜덤"><button className="photoScene" onClick={clickVolcano} disabled={energy<1}><img src={PHOTO.volcano} alt="화산 사진"/><span className="label top">화산암 구역<br/>현무암 · 유문암</span><span className="label bottom">심성암 구역<br/>화강암 · 반려암</span></button></World>
    <World title="🐟 호수/연못 퇴적층" desc="자갈·모래·진흙·조개층을 눌러 역암/사암/이암/석회암을 얻습니다."><button className="photoScene" onClick={clickLake} disabled={energy<1}><img src={PHOTO.lake} alt="호수 사진"/><span className="lakeGrid a">역암</span><span className="lakeGrid b">사암</span><span className="lakeGrid c">이암</span><span className="lakeGrid d">석회암</span></button></World>
