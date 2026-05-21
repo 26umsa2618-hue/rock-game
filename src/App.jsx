@@ -16,19 +16,21 @@ const ROCKS=[
 ["marble","대리암","변성암","석회암이 변성","기존 암석이 변한 모습","","석회암이 변성되어 만들어짐","석회암이 변성 작용을 받아 만들어진 변성암이다.",19]
 ].map(([id,name,type,subtype,a,b,feature,fact,value])=>({id,name,type,subtype,a,b,feature,fact,value}));
 
+const IMG_BASE = import.meta.env.BASE_URL;
+
 const PHOTO={
-granite:"/rocks/granite.jpg",
-gabbro:"/rocks/gabbro.jpg",
-basalt:"/rocks/basalt.jpg",
-rhyolite:"/rocks/rhyolite.jpg",
-conglomerate:"/rocks/conglomerate.jpg",
-sandstone:"/rocks/sandstone.jpg",
-mudstone:"/rocks/mudstone.jpg",
-limestone:"/rocks/limestone.jpg",
-gneiss:"/rocks/gneiss.jpg",
-marble:"/rocks/marble.jpg",
-volcano:"/rocks/volcano.jpg",
-lake:"/rocks/lake.jpg"
+granite:`${IMG_BASE}rocks/granite.jpg`,
+gabbro:`${IMG_BASE}rocks/gabbro.jpg`,
+basalt:`${IMG_BASE}rocks/basalt.jpg`,
+rhyolite:`${IMG_BASE}rocks/rhyolite.jpg`,
+conglomerate:`${IMG_BASE}rocks/conglomerate.jpg`,
+sandstone:`${IMG_BASE}rocks/sandstone.jpg`,
+mudstone:`${IMG_BASE}rocks/mudstone.jpg`,
+limestone:`${IMG_BASE}rocks/limestone.jpg`,
+gneiss:`${IMG_BASE}rocks/gneiss.jpg`,
+marble:`${IMG_BASE}rocks/marble.jpg`,
+volcano:`${IMG_BASE}rocks/volcano.jpg`,
+lake:`${IMG_BASE}rocks/lake.jpg`
 };
 
 const firebaseConfig={apiKey:"AIzaSyBR_uqP_bJdTULAkcyQJF4p3ZIkLzY-30",authDomain:"rock-game-a09c2.firebaseapp.com",databaseURL:"https://rock-game-a09c2-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"rock-game-a09c2",storageBucket:"rock-game-a09c2.firebasestorage.app",messagingSenderId:"182019123095",appId:"1:182019123095:web:cda88c83d5a8464a7acd2"};
