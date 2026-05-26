@@ -337,3 +337,12 @@ button {
 .empty {
   color: #111827;
 }
+
+
+/* disabled button visibility */
+button:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+  transform:none !important;
+  filter:grayscale(.45);
+}

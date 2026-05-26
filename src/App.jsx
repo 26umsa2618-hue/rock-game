@@ -111,7 +111,18 @@ export default function App(){
   <section className="worlds">
    <World title="🌋 화산 · 화성암 생성" desc="위쪽 화산암 구역: 현무암/유문암 랜덤 · 아래쪽 심성암 구역: 화강암/반려암 랜덤"><button className="photoScene" onClick={clickVolcano} disabled={energy<1}><img src={PHOTO.volcano} alt="화산 사진"/><span className="label top">화산암 구역<br/>현무암 · 유문암</span><span className="label bottom">심성암 구역<br/>화강암 · 반려암</span></button></World>
    <World title="🐟 호수/연못 퇴적층" desc="자갈·모래·진흙·조개층을 눌러 역암/사암/이암/석회암을 얻습니다."><button className="photoScene" onClick={clickLake} disabled={energy<1}><img src={PHOTO.lake} alt="호수 사진"/><span className="lakeGrid a">역암</span><span className="lakeGrid b">사암</span><span className="lakeGrid c">이암</span><span className="lakeGrid d">석회암</span></button></World>
-   <World title="🔥 변성 작용 실험실" desc="기존 암석 + 열과 압력 → 변성암"><div className="lab"><div>압력 + 열 + 압력</div><button onClick={()=>transform("granite")}>화강암 → 편마암</button><button onClick={()=>transform("limestone")}>석회암 → 대리암</button></div></World>
+   <World title="🔥 변성 작용 실험실" desc="기존 암석 + 열과 압력 → 변성암"><div className="lab"><div>압력 + 열 + 압력</div><button
+  title={(inv["granite"]||0)<1?"화강암 표본 필요":energy<1?"에너지 부족":cooldown["gneiss"]?"편마암 쿨다운 중":"변성 가능"}
+  onClick={()=>transform("granite")}
+>
+  화강암 → 편마암 {cooldown["gneiss"]?"🧊":""}
+</button>
+<button
+  title={(inv["limestone"]||0)<1?"석회암 표본 필요":energy<1?"에너지 부족":cooldown["marble"]?"대리암 쿨다운 중":"변성 가능"}
+  onClick={()=>transform("limestone")}
+>
+  석회암 → 대리암 {cooldown["marble"]?"🧊":""}
+</button></div></World>
   </section>
   <section className="mainGrid">
    <section className="card observe"><h2>🔬 현재 표본</h2>{cur?<><Photo r={cur}/><h3>{cur.name}</h3><p>{cur.fact}</p><Choices r={cur} vals={{grain,color,made,feature,meta,kind}} sets={{setGrain,setColor,setMade,setFeature,setMeta,setKind}}/></>:<p className="empty">환경 사진을 클릭해 표본을 찾으세요.</p>}</section>
