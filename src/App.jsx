@@ -90,39 +90,34 @@ export default function App(){
  const findRock=(r,place)=>{if(energy<1)return setMsg("에너지가 부족합니다.");setCur(r);setDone(false);setEnergy(e=>e-1);setInv(v=>({...v,[r.id]:(v[r.id]||0)+1}));clear();setMsg(`${place}에서 ${r.name} 발견! 관찰하고 검증하세요.`)};
  const clickVolcano=e=>{let y=(e.clientY-e.currentTarget.getBoundingClientRect().top)/e.currentTarget.getBoundingClientRect().height;let ids=y<.5?["basalt","rhyolite"]:["granite","gabbro"];let sample=pickNotCooldown(ids);if(sample)findRock(sample,y<.5?"화산암 구역":"심성암 구역")};
  const clickLake=e=>{let r=e.currentTarget.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;let id=y<.5&&x<.5?"conglomerate":y<.5?"sandstone":x<.5?"mudstone":"limestone";let sample=pickNotCooldown([id]);if(sample)findRock(sample,"호수 퇴적층")};
- const transform=id=>{let out=id==="granite"?by("gneiss"):id==="limestone"?by("marble"):null,src=by(id);if(!out)return;if((inv[id]||0)<1)return setMsg(`${src.name} 표본이 필요합니다.`);if(energy<1)return setMsg("에너지가 부족합니다.");setInv(v=>({...v,[id]:v[id]-1,[out.id]:(v[out.id]||0)+1}));setEnergy(e=>e-1);setCur(out);setDone(false);clear();setMsg(`${src.name} → ${out.name} 변성 성공! 관찰하고 검증하세요.`)};
- const verify=()=>{let r=cur;if(!r)return setMsg("먼저 표본을 찾으세요.");if(done)return setMsg("이미 검증된 표본입니다.");
-  if(r.type==="화성암"){if(!grain||!color)return setMsg("알갱이 크기와 색깔을 선택하세요.");if(grain!==r.a||color!==r.b)return wrong("관찰 결과가 틀렸습니다.")}
-  if(r.type==="퇴적암"){if(!made||!feature)return setMsg("퇴적 흔적과 특징을 선택하세요.");if(made!==r.a||feature!==r.feature)return wrong("관찰 결과가 틀렸습니다.")}
-  if(r.type==="변성암"){if(!meta||!feature)return setMsg("변성 흔적과 특징을 선택하세요.");if(meta!==r.a||feature!==r.feature)return wrong("관찰 결과가 틀렸습니다.")}
-  if(!kind)return setMsg("암석 종류를 선택하세요.");if(kind!==r.type)return wrong("암석 종류가 틀렸습니다.");
-  let g=12+L.bonus;addScore(g);setCoins(c=>c+Math.floor(r.value/2));setBook(b=>({...b,[r.id]:true}));setVer(v=>({...v,[r.id]:true}));addCooldown(r.id);setDone(true);setMsg(`${r.name} 검증 성공! +${g}점 · 🧊 쿨다운 등록`);
- };
+ const transform=id=>{
+ let out=id==="granite"?by("gneiss"):id==="limestone"?by("marble"):null,src=by(id);
+ if(!out)return;
+
+ const have=(inv[id]||0)+(inv[src.name]||0);
+ if(have<1)return setMsg(`${src.name} 표본이 필요합니다.`);
+ if(energy<1)return setMsg("에너지가 부족합니다.");
+
+ setInv(v=>{
+  const next={...v};
+  if((next[id]||0)>0) next[id]=next[id]-1;
+  else if((next[src.name]||0)>0) next[src.name]=next[src.name]-1;
+  next[out.id]=(next[out.id]||0)+1;
+  return next;
+ });
+
+ setEnergy(e=>e-1);
+ setCur(out);
+ setDone(false);
+ clear();
+ setMsg(`${src.name} → ${out.name} 변성 성공! 관찰하고 검증하세요.`);
+};
  const sell=id=>{let r=by(id);if(!inv[id])return;if(!ver[id])return setMsg("검증 필요");setInv(v=>({...v,[id]:v[id]-1}));setCoins(c=>c+r.value);addScore(5);setMsg(`${r.name} 판매! +${r.value}코인`)};
  const charge=()=>coins<35?setMsg("35코인이 필요합니다."): (setCoins(c=>c-35),setEnergy(e=>e+4),setMsg("에너지 +4, -35코인"));
  const skip=()=>cur?(setCur(null),setDone(false),clear(),setScore(s=>Math.max(0,s-10)),setMsg("표본을 넘겼습니다. -10점")):setMsg("넘길 표본이 없습니다.");
 
- if(!player)return <main className="page center"><section className="card start"><h1>🧪 중2 과학 암석 연구소</h1><p>이름은 이 브라우저에 저장됩니다.</p><p className="made">Made by 이나우</p><input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&start()} placeholder="이름 입력"/><button onClick={start}>게임 시작</button></section></main>;
-
- return <main className="page"><div className="shell">
-  <header className="hero card"><div><h1>🧪 중2 과학 암석 연구소</h1><p>🔎 실제 사진으로 관찰 · 🧭 분류 · ✅ 검증</p></div><div className="stats"><Stat l="코인" v={coins}/><Stat l="에너지" v={energy}/><Stat l="점수" v={score}/><Stat l={L.t} v={`Lv.${level}`}/></div></header>
-  <section className="card level"><b>Lv.{level} {L.t}</b><div className="bar"><span style={{width:progress+"%"}}/></div><small>{N?`다음: Lv.${N.lv} ${N.t} · ${N.min-score}점 남음`:"최고 레벨"}</small></section>
-  <section className="card message"><b>{msg}<br/><small>🧊 쿨다운 {cooldownCount}/{ROCKS.length}</small></b><div><button onClick={verify}>✅ 검증</button><button onClick={charge}>⚡ 충전 -35</button><button onClick={skip}>⏭️ 넘기기 -10</button></div></section>
-  <section className="worlds">
-   <World title="🌋 화산 · 화성암 생성" desc="위쪽 화산암 구역: 현무암/유문암 랜덤 · 아래쪽 심성암 구역: 화강암/반려암 랜덤"><button className="photoScene" onClick={clickVolcano} disabled={energy<1}><img src={PHOTO.volcano} alt="화산 사진"/><span className="label top">화산암 구역<br/>현무암 · 유문암</span><span className="label bottom">심성암 구역<br/>화강암 · 반려암</span></button></World>
-   <World title="🐟 호수/연못 퇴적층" desc="자갈·모래·진흙·조개층을 눌러 역암/사암/이암/석회암을 얻습니다."><button className="photoScene" onClick={clickLake} disabled={energy<1}><img src={PHOTO.lake} alt="호수 사진"/><span className="lakeGrid a">역암</span><span className="lakeGrid b">사암</span><span className="lakeGrid c">이암</span><span className="lakeGrid d">석회암</span></button></World>
-   <World title="🔥 변성 작용 실험실" desc="기존 암석 + 열과 압력 → 변성암"><div className="lab"><div>압력 + 열 + 압력</div><button
-  title={(inv["granite"]||0)<1?"화강암 표본 필요":energy<1?"에너지 부족":cooldown["gneiss"]?"편마암 쿨다운 중":"변성 가능"}
-  onClick={()=>transform("granite")}
->
-  화강암 → 편마암 {cooldown["gneiss"]?"🧊":""}
-</button>
-<button
-  title={(inv["limestone"]||0)<1?"석회암 표본 필요":energy<1?"에너지 부족":cooldown["marble"]?"대리암 쿨다운 중":"변성 가능"}
-  onClick={()=>transform("limestone")}
->
-  석회암 → 대리암 {cooldown["marble"]?"🧊":""}
-</button></div></World>
+ if(!player)return <main className="page center"><section className="card start"><h1>🧪 중2 과학 암석 연구소</h1><p>이름은 이 브라우저에 저장됩니다.</p><p className="made">Made by 이나우</p><input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&start()} placeholder="이름 입력"/><button onClick={()=>transform("granite")}>화강암 → 편마암</button>
+<button onClick={()=>transform("limestone")}>석회암 → 대리암</button></div></World>
   </section>
   <section className="mainGrid">
    <section className="card observe"><h2>🔬 현재 표본</h2>{cur?<><Photo r={cur}/><h3>{cur.name}</h3><p>{cur.fact}</p><Choices r={cur} vals={{grain,color,made,feature,meta,kind}} sets={{setGrain,setColor,setMade,setFeature,setMeta,setKind}}/></>:<p className="empty">환경 사진을 클릭해 표본을 찾으세요.</p>}</section>
